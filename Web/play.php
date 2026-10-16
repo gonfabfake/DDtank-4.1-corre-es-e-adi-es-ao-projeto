@@ -13,6 +13,14 @@ if (!$custom->isAuthenticated()) {
     header('Location: /index.php');
     exit;
 }
+// Host used by the browser and by the Flash client: works for 127.0.0.1 (PC)
+// and for LAN access from a phone (e.g. 192.168.x.x). Never echoed unchecked.
+$host = isset($_SERVER['HTTP_HOST']) ? strtolower($_SERVER['HTTP_HOST']) : '127.0.0.1';
+if (!preg_match('~^[a-z0-9.\-]+(:\d+)?$~', $host)) {
+    $host = '127.0.0.1';
+}
+$hostname = preg_replace('~:\d+$~', '', $host);
+$origin = 'http://' . $host;
 $error = null;
 $key = bin2hex(random_bytes(16));
 $name = strtolower($custom->LowerName);
@@ -47,9 +55,9 @@ session_write_close();
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DDTank — jogo local</title>
 <style>
-body{margin:0;background:#111a25;color:#eee;font:16px Arial;text-align:center}
-#game{width:min(100vw,1000px);height:600px;margin:16px auto;background:#000}
-ruffle-player{width:100%;height:100%}a{color:#78ccff}#status{padding:12px}
+html,body{margin:0;height:100%;background:#111a25;color:#eee;font:16px Arial;text-align:center}
+#game{width:100vw;max-width:1200px;height:calc(100vh - 150px);min-height:320px;margin:8px auto;background:#000}
+ruffle-player{width:100%;height:100%}a{color:#78ccff}#status{padding:10px}
 </style>
 <script src="/ruffle/ruffle.js"></script>
 </head>
@@ -66,9 +74,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('game').appendChild(player);
         await player.ruffle().load({
             url: '/Flash/Loading.swf',
-            parameters: <?php echo json_encode(['user'=>$name, 'key'=>$key, 'config'=>'http://127.0.0.1/config.xml'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
-            autoplay: 'on', unmuteOverlay: 'visible',
-            socketProxy: [{host:'127.0.0.1',port:9200,proxyUrl:'ws://127.0.0.1:8765/game'}]
+            parameters: <?php echo json_encode(['user'=>$name, 'key'=>$key, 'config'=>$origin . '/config.php'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+            autoplay: 'on', unmuteOverlay: 'visible', logLevel: 'error',
+            socketProxy: [{host:'127.0.0.1',port:9200,proxyUrl:'ws://<?php echo $hostname; ?>:8765/game'}]
         });
         status.textContent = 'Cliente iniciado no Ruffle. Aguarde o carregamento do jogo.';
     } catch (error) {

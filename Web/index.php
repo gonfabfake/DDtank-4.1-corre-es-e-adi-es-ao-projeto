@@ -18,6 +18,7 @@ if(isset($_POST['login']) && !isset($_SESSION['UserData']))
 		$UserInfo = new MemberData($user,$pass);
 		if($UserInfo->isAuthenticated())
 		{
+		session_regenerate_id(true);
 		getUserData($UserInfo);
 		$_SESSION['UserData'] = serialize($UserInfo);
 		}
@@ -49,7 +50,12 @@ if(isset($_POST["register"]))
 	if(!preg_match("/^([a-zA-Z0-9\-\_]*)$/",$username) || !preg_match("/^([a-zA-Z0-9\-\_]*)$/",$Nickname)) {
 		$text_r .= 'Login ou Nick invalido';
 	}
-	if(!filter_var($email,FILTER_VALIDATE_EMAIL)) $text_r .= ' seu email não é valido <br>';
+	if(!filter_var($email,FILTER_VALIDATE_EMAIL)) {
+		$text_r .= ' seu email não é valido <br>';
+	} else {
+		// Escapa aspas simples: o email entra em literais T-SQL logo abaixo.
+		$email = str_replace("'", "''", $email);
+	}
 	if($password != $Repassword) $text_r.= 'Suas senhas não são iguais <br>';
 	if(strlen($username)  < 6 || strlen($username)  > 30) $text_r .= 'Usuário deve ter  de 6 a 30 caracteres <br>';
 	if(strlen($password)  < 6 || strlen($password)  > 30) $text_r .= 'A senha deve ter de 6 a 30 caracteres <br>';

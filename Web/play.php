@@ -14,22 +14,45 @@ if (!$custom->isAuthenticated()) {
     exit;
 }
 // Host used by the browser and by the Flash client: works for 127.0.0.1 (PC)
-// and for LAN access from a phone (e.g. 192.168.x.x). Never echoed unchecked.
+// and for LAN access from a phone (e.g. 192.168.x.x). Only names/IPs that
+// really belong to this machine are accepted; anything else falls back to
+// 127.0.0.1 (defense against Host-header spoofing in the URLs we build).
 $host = isset($_SERVER['HTTP_HOST']) ? strtolower($_SERVER['HTTP_HOST']) : '127.0.0.1';
-if (!preg_match('~^[a-z0-9.\-]+(:\d+)?$~', $host)) {
-    $host = '127.0.0.1';
+$portSuffix = '';
+$hostname = $host;
+if (preg_match('~^([a-z0-9.\-]+)(:\d+)?$~', $host, $hm)) {
+    $hostname = $hm[1];
+    $portSuffix = isset($hm[2]) ? $hm[2] : '';
+} else {
+    $hostname = '127.0.0.1';
 }
-$hostname = preg_replace('~:\d+$~', '', $host);
+$trustedHosts = array('127.0.0.1', 'localhost');
+$serverAddr = isset($_SERVER['SERVER_ADDR']) ? strtolower($_SERVER['SERVER_ADDR']) : '';
+if ($serverAddr !== '') { $trustedHosts[] = $serverAddr; }
+$ownIp = strtolower((string)@gethostbyname(@gethostname()));
+if ($ownIp !== '') { $trustedHosts[] = $ownIp; }
+if (!in_array($hostname, $trustedHosts, true)) {
+    $hostname = '127.0.0.1';
+    $portSuffix = '';
+}
+$host = $hostname . $portSuffix;
 $origin = 'http://' . $host;
 $error = null;
 $key = bin2hex(random_bytes(16));
 $name = strtolower($custom->LowerName);
 $time = (string)time();
-// Use the deployed request application's signing key (never send it to the browser).
-$requestConfig = simplexml_load_file(dirname(__DIR__) . '/Request/Web.config');
+// Use the deployed request application's signing key (never send it to the
+// browser). The current value lives in Request/WebPrivate.config, which is not
+// versioned; Request/Web.config stays as a fallback for older layouts.
 $loginKey = '';
-foreach ($requestConfig->appSettings->add as $setting) {
-    if ((string)$setting['key'] === 'LoginKey') $loginKey = (string)$setting['value'];
+foreach (array('WebPrivate.config', 'Web.config') as $cfgName) {
+    $cfgPath = dirname(__DIR__) . '/Request/' . $cfgName;
+    if (!is_file($cfgPath)) { continue; }
+    $requestConfig = @simplexml_load_file($cfgPath);
+    if ($requestConfig === false) { continue; }
+    foreach ($requestConfig->appSettings->add as $setting) {
+        if ((string)$setting['key'] === 'LoginKey') { $loginKey = (string)$setting['value']; break 2; }
+    }
 }
 if ($loginKey === '') {
     $error = 'A chave de integracao do servidor nao esta configurada.';

@@ -54,7 +54,9 @@ class PersonalData
 
             try
             {
-                 $str = "update PersonalData set Phone = '{$this->Phone}' where UserID = {$this->UserID}";
+                 $uid   = (int)$this->UserID;
+                 $phone = str_replace("'", "''", (string)$this->Phone);
+                 $str = "update PersonalData set Phone = '{$phone}' where UserID = {$uid}";
                  $p = sqlsrv_prepare($conn,$str);    
                  if(!sqlsrv_execute($p))
                  {
@@ -86,10 +88,10 @@ class PersonalData
             global $conn;
             $data = unserialize($_SESSION['UserData']);
             $data->GameData();
-            if(!$data->isUserIDValid() && $data->GameID == $this->UserID)
+            if($data->isUserIDValid() && $data->GameID == $this->UserID)
             {   try
                 {
-                  $str = "select * from PersonalData where UserID = {$this->UserID}";
+                  $str = "select * from PersonalData where UserID = " . (int)$this->UserID;
                   $smtp = sqlsrv_query($conn,$str,array(),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
                   $data = sqlsrv_fetch_array($smtp,SQLSRV_FETCH_ASSOC);
                   if(isset($data["FirstName"]))
@@ -134,10 +136,10 @@ class PersonalData
             global $conn;
             $data = unserialize($_SESSION['UserData']);
             $data->GameData();
-            if(!$data->isUserIDValid() && $data->GameID == $this->UserID)
+            if($data->isUserIDValid() && $data->GameID == $this->UserID)
             {   try
                 {
-                $str = "select * from PersonalData where UserID = {$this->UserID}";
+                $str = "select * from PersonalData where UserID = " . (int)$this->UserID;
                 $smtp = sqlsrv_query($conn,$str,array(),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
                 $q = @sqlsrv_num_rows($smtp);
                 if($q>0)
@@ -178,11 +180,16 @@ class PersonalData
 
                $data = unserialize($_SESSION['UserData']);
                $data->GameData();
-               if(!$data->isUserIDValid() && $data->GameID == $this->UserID)
+               if($data->isUserIDValid() && $data->GameID == $this->UserID)
                {
                    try
                    {
-                        $str = "insert into PersonalData values({$this->UserID},'{$this->CPF}','{$this->FirstName}','{$this->LastName}','{$this->Phone}')";
+                        $uid  = (int)$this->UserID;
+                        $cpf  = str_replace("'", "''", (string)$this->CPF);
+                        $fn   = str_replace("'", "''", (string)$this->FirstName);
+                        $ln   = str_replace("'", "''", (string)$this->LastName);
+                        $ph   = str_replace("'", "''", (string)$this->Phone);
+                        $str = "insert into PersonalData values({$uid},'{$cpf}','{$fn}','{$ln}','{$ph}')";
                         $p = sqlsrv_prepare($conn,$str);
      
                         if(!sqlsrv_execute($p))

@@ -5,9 +5,16 @@ $senha = 'Pain3lT#Teste2026'
 
 function Csrf($c) { if ($c -match 'name="_csrf" value="([a-f0-9]+)"') { return $Matches[1] } }
 
-# garante senha conhecida + admin
-$token = [string](Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw)
-$token = $token.Trim()
+# Zera o rate-limit da conta de teste
+sqlcmd -S . -E -d Db_Tank41 -Q "DELETE FROM Admin_Tentativas WHERE UserName='teste01';" | Out-Null
+
+# Gera um token novo (o script assume controle do estado)
+& powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\DDTank4.1-main\Tools\ContaBoost\gera-token-painel.ps1' | Out-Null
+$token = ''
+if (Test-Path 'C:\DDTank4.1-main\secrets\painel_token.txt') {
+    $bruto = Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw -ErrorAction SilentlyContinue
+    if ($null -ne $bruto) { $token = ([string]$bruto).Trim() }
+}
 if ($token -ne '') {
     $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $r = Invoke-WebRequest "$base/primeiro_acesso.php" -WebSession $s -UseBasicParsing

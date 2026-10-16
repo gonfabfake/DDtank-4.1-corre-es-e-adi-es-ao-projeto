@@ -3,7 +3,7 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 
-$bin    = 'C:\DDTank4.1-main\Source Server'
+$bin    = Join-Path $PSScriptRoot 'Source Server'
 $proxyDir = Join-Path $PSScriptRoot 'Tools\ruffle-proxy'
 $proxyScript = Join-Path $proxyDir 'proxy.cjs'
 $proxyNode = 'C:\Program Files\nodejs\node.exe'

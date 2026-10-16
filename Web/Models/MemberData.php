@@ -65,19 +65,15 @@ class MemberData{
 
     public function isUserIDValid()
     {
-
-        if($this->GameID == -1 || isset($this->GameID))
-        {
-            return false;
-        }
-        return true;
+        // Valido = existe um GameID real (preenchido por GameData()) e != -1.
+        return isset($this->GameID) && $this->GameID !== null && (int)$this->GameID != -1;
     }
 
     Public function GameData()
     {
         global $conn,$dbtank41;
-        $str = "select NickName,UserID from {$dbtank41}.dbo.Sys_Users_Detail where UserName = '{$this->LowerName}'";
-        $smtp = sqlsrv_query($conn,$str,array(),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
+        $str = "select NickName,UserID from {$dbtank41}.dbo.Sys_Users_Detail where UserName = ?";
+        $smtp = sqlsrv_query($conn,$str,array($this->LowerName),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
         $data = sqlsrv_fetch_array($smtp,SQLSRV_FETCH_ASSOC);
 
         if(isset($data["NickName"]))
@@ -90,8 +86,8 @@ class MemberData{
     public function GetByID($UserID)
     {
         global $conn,$dbtank41;
-        $str = "select UserName,NickName from {$dbtank41}.dbo.Sys_Users_Detail where UserID = '{$UserID}'";
-        $smtp = sqlsrv_query($conn,$str,array(),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
+        $str = "select UserName,NickName from {$dbtank41}.dbo.Sys_Users_Detail where UserID = ?";
+        $smtp = sqlsrv_query($conn,$str,array((int)$UserID),array("Scrollable"=>SQLSRV_CURSOR_KEYSET));
         $data = sqlsrv_fetch_array($smtp,SQLSRV_FETCH_ASSOC);
 
         if(isset($data["NickName"]))
@@ -105,8 +101,8 @@ class MemberData{
     {
     global $conn,$dbtank41,$WSDL;
 	$hoje = date('d/m/Y');
-	$str = "insert into {$dbtank41}.[dbo].[Charge_Money] values('{$chargeID}','{$this->UserName}',{$Money},'{$hoje}',1,'PicPay',{$NeedMoney},null,'{$this->NickName}')";
-	$data = sqlsrv_prepare($conn,$str);
+	$str = "insert into {$dbtank41}.[dbo].[Charge_Money] values(?,?,?,?,1,'PicPay',?,null,?)";
+	$data = sqlsrv_prepare($conn,$str,array($chargeID,$this->UserName,$Money,$hoje,$NeedMoney,$this->NickName));
 	if(!$data)
 	{
 		die( print_r( sqlsrv_errors(), true));

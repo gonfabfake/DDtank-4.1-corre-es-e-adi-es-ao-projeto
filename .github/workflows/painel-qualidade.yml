@@ -21,3 +21,5 @@ jobs:
           php -r 'require "Web/painel/_imgconfig.php"; if (img_config_padrao()["modo"] !== "espelho" || img_config_ler()["modo"] !== "espelho") {fwrite(STDERR, "Modo espelho invalido\n"); exit(1);} echo "Modo espelho OK\n";'
       - name: Testar derivacao e bloqueio de destinos privados
         run: php Web/painel/tests/test_imagens.php
+      - name: Testar caminhos de imagens do React
+        run: node Web/painel/tests/test_img_paths.cjs

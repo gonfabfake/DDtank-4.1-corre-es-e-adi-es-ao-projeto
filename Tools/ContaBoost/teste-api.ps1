@@ -80,6 +80,22 @@ $d = (Invoke-WebRequest "$base/api.php?a=contas&q=" -WebSession $s2 -UseBasicPar
 Chk 'lista de contas'       ($d.contas.Count -gt 0) "$($d.contas.Count) contas"
 Chk 'contas com contagem'   ($null -ne $d.contas[0].Itens)
 
+Write-Host "`n=== resource de imagens ===" -ForegroundColor Cyan
+$d = (Invoke-WebRequest "$base/api.php?a=imgconfig" -WebSession $s2 -UseBasicParsing).Content | ConvertFrom-Json
+Chk 'imgconfig responde'    ($d.ok -eq $true)
+Chk 'modelos por categoria' ($d.modelos.'7' -eq 'arm/{id}/00.png') "cat7=$($d.modelos.'7')"
+Chk 'cat 5 = cloth'         ($d.modelos.'5' -match 'cloth')
+Chk 'cat 14 = necklace'     ($d.modelos.'14' -match 'necklace')
+
+$d = (Invoke-WebRequest "$base/api.php?a=imgteste&base=&tpl=arm/{id}/00.png&id=71843" -WebSession $s2 -UseBasicParsing).Content | ConvertFrom-Json
+Chk 'imgteste sem base'     ($d.ok -eq $true -and $d.achou -eq $false) "motivo=$($d.motivo)"
+
+$d = (Invoke-WebRequest "$base/api.php?a=imgteste&base=https://exemplo.invalido/x/&tpl=arm/{id}/00.png&id=1" -WebSession $s2 -UseBasicParsing -TimeoutSec 40).Content | ConvertFrom-Json
+Chk 'imgteste host invalido' ($d.achou -eq $false) "motivo=$($d.motivo)"
+
+$d = (Invoke-WebRequest "$base/api.php?a=bootstrap" -WebSession $s2 -UseBasicParsing).Content | ConvertFrom-Json
+Chk 'bootstrap traz img'    ($null -ne $d.img)
+
 Write-Host "`n=== acoes POST (CSRF exigido) ===" -ForegroundColor Cyan
 $uid = 25
 # o CSRF vem do BOOT injetado pelo app.php

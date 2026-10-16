@@ -63,7 +63,19 @@ function img_config_ler(): array {
 
 function img_config_gravar(array $novo): array {
     $c = img_config_ler();
-    if (isset($novo['base']))   $c['base'] = rtrim(trim((string)$novo['base']), '/') . (trim((string)$novo['base']) !== '' ? '/' : '');
+    if (isset($novo['base'])) {
+        $base = trim((string)$novo['base']);
+        if ($base !== '') {
+            if (strlen($base) > 2000) throw new InvalidArgumentException('URL base muito longa.');
+            $parsed = parse_url($base);
+            if (!is_array($parsed) || isset($parsed['query'])) {
+                throw new InvalidArgumentException('URL base nao pode conter parametros.');
+            }
+            $ch = img_curl_seguro($base);
+            curl_close($ch);
+        }
+        $c['base'] = $base !== '' ? rtrim($base, '/') . '/' : '';
+    }
     if (isset($novo['modo']) && in_array($novo['modo'], ['espelho','padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
     if (isset($novo['caminho']) && in_array($novo['caminho'], ['padrao','template','pic','custom'], true)) $c['caminho'] = $novo['caminho'];
     if (isset($novo['template_custom'])) $c['template_custom'] = (string)$novo['template_custom'];
@@ -119,4 +131,25 @@ function img_curl_seguro(string $url) {
         CURLOPT_USERAGENT => 'DDTank-Painel/2',
     ]);
     return $ch;
+}
+
+/* Consulta remota limitada. Sem redirects, downloads excessivos ou URL privada. */
+function img_consulta_publica(string $url, bool $head = false, int $limite = 2097152): array {
+    $ch = img_curl_seguro($url);
+    $body = '';
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION,
+        static function ($curl, string $parte) use (&$body, $limite): int {
+            if (strlen($body) + strlen($parte) > $limite) return 0;
+            $body .= $parte;
+            return strlen($parte);
+        });
+    curl_setopt($ch, CURLOPT_NOBODY, $head);
+    $resultado = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $tipo = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    $erro = $resultado === false ? curl_error($ch) : '';
+    curl_close($ch);
+    return ['status' => $status, 'contentType' => $tipo, 'bytes' => strlen($body),
+        'body' => $body, 'erro' => $erro,
+        'achou' => ($resultado !== false && $status === 200 && stripos($tipo, 'image/') === 0)];
 }

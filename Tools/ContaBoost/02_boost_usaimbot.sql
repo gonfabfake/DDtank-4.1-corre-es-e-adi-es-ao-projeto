@@ -152,6 +152,8 @@ BEGIN
     END
     ELSE
     BEGIN
+        -- EXEC nao aceita expressao como valor de parametro: converta antes.
+        DECLARE @Now datetime = GETDATE();
         SET @ItemID = 0;
         EXEC Db_Tank41.dbo.SP_Users_Items_Add
              @ItemID           = @ItemID OUTPUT,
@@ -168,7 +170,7 @@ BEGIN
              @LuckCompose      = 0,
              @AgilityCompose   = 0,
              @IsBinds          = 0,
-             @BeginDate        = GETDATE(),
+             @BeginDate        = @Now,
              @ValidDate        = 0,
              @BagType          = @BagType,
              @Skin             = '',
@@ -188,7 +190,7 @@ BEGIN
              @IsGold           = 0,
              @goldValidDate    = 0,
              @StrengthenExp    = 0,
-             @goldBeginTime    = GETDATE();
+             @goldBeginTime    = @Now;
         PRINT CONCAT('  [inserido ItemID=', @ItemID, '] slot ', @BagType, ':', @Place, '  ', @Label);
     END
 

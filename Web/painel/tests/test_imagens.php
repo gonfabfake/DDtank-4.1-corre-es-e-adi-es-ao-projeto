@@ -32,4 +32,13 @@ rejeita(static fn() => img_derivar_template($exemploNomeado, '71843'),
     'URL com guidname nao vira template numerico');
 confere(str_contains(parse_url($exemploNomeado, PHP_URL_PATH), '/image/unfrightprop/guidname/icon.png'),
     'caminho de referencia preservado integralmente');
+
+confere(img_resource_base('https://resbr51-myddt-ofc.ddtankswordgames.com/')
+    === 'https://resbr51-myddt-ofc.ddtankswordgames.com/image/',
+    'prefixo image/ em resource com raiz de site');
+confere(img_resource_base('https://resbr51-myddt-ofc.ddtankswordgames.com/image/')
+    === 'https://resbr51-myddt-ofc.ddtankswordgames.com/image/',
+    'sem duplicar o prefixo image/');
+confere(str_contains(img_caminhos()[34], 'unfrightprop/'),
+    'categoria 34 segue convencao de loadimage');
 echo "Testes locais do painel concluidos.\n";

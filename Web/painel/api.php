@@ -209,6 +209,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
 
     $acao   = (string)($_POST['acao'] ?? '');
     $userID = (int)($_POST['userid'] ?? 0);
+
+    /* Config de imagem nao e operacao de conta: resolve antes de exigir userid. */
+    if ($acao === 'imgconfig') {
+        $cfg = img_config_gravar([
+            'base'   => (string)($_POST['base'] ?? ''),
+            'modo'   => (string)($_POST['modo'] ?? 'padrao'),
+            'mostrar'=> (int)($_POST['mostrar'] ?? 1),
+        ]);
+        db_exec("INSERT INTO Db_Tank41.dbo.Admin_Auditoria (AdminID, AdminNome, Acao, Detalhe, IP)
+                 VALUES (?, ?, 'imgconfig', ?, ?)",
+                [admin_dados()['UserID'], admin_dados()['UserName'],
+                 'base=' . ($cfg['base'] ?: '(vazio)') . ' modo=' . $cfg['modo'],
+                 painel_ip_cliente()]);
+        responder(['ok' => true, 'cfg' => $cfg, 'msg' => 'Configuracao de imagens salva.']);
+    }
+
     $antes  = db_um("SELECT UserID, UserName, NickName, Grade, GP, Money, Gold, Offer, Medal
                      FROM Db_Tank41.dbo.Sys_Users_Detail WHERE UserID = ?", [$userID]);
     if (!$antes) falha('Conta nao encontrada.', 404);
@@ -295,15 +311,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
                          SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 1
                          WHERE ItemID = ? AND UserID = ?", [$itemID, $userID]);
                 $detalhe = "ItemID = $itemID";
-                break;
-
-            case 'imgconfig':
-                $cfg = img_config_gravar([
-                    'base'   => (string)($_POST['base'] ?? ''),
-                    'modo'   => (string)($_POST['modo'] ?? 'padrao'),
-                    'mostrar'=> (int)($_POST['mostrar'] ?? 1),
-                ]);
-                $detalhe = 'base=' . ($cfg['base'] ?: '(vazio)') . ' modo=' . $cfg['modo'];
                 break;
 
             default:

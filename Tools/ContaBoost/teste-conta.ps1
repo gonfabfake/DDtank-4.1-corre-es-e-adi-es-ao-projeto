@@ -6,7 +6,8 @@ $senha = 'Pain3lT#Teste2026'
 function Csrf($c) { if ($c -match 'name="_csrf" value="([a-f0-9]+)"') { return $Matches[1] } }
 
 # garante senha conhecida + admin
-$token = ([string](Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw)).Trim()
+$token = [string](Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw)
+$token = $token.Trim()
 if ($token -ne '') {
     $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $r = Invoke-WebRequest "$base/primeiro_acesso.php" -WebSession $s -UseBasicParsing

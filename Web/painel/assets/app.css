@@ -358,3 +358,12 @@ footer { color: #a6b8d2; border-color: #304260; }
 .acoes-url {display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
 .acoes-url button {flex:1 1 220px;min-height:42px;background:#284467;color:#e3f2ff;border:1px solid #47709c;border-radius:10px;padding:10px 16px;cursor:pointer}
 .acoes-url button:disabled {opacity:.45;cursor:not-allowed}
+
+/* Diagnostico de recursos: caminhos e mensagens de erro legiveis. */
+.img-diagnostico { padding-top:12px; }
+.img-diagnostico-lista { display:flex; flex-direction:column; gap:9px; margin:12px 0; }
+.img-diagnostico-item { display:flex; flex-direction:column; gap:5px;
+  padding:10px 12px; border:1px solid var(--linha); border-radius:10px;
+  background:var(--p2); overflow-wrap:anywhere; }
+.img-diagnostico-item code { white-space:normal; overflow-wrap:anywhere; }
+.img-diagnostico-item small { display:block; overflow-wrap:anywhere; }

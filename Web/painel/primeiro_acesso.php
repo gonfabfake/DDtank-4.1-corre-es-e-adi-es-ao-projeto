@@ -24,7 +24,6 @@ function token_disponivel(): bool {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validar();
-    registrar_tentativa('__primeiro_acesso__', false); // conta toda tentativa
 
     $token   = trim((string)($_POST['token'] ?? ''));
     $usuario = trim((string)($_POST['usuario'] ?? ''));
@@ -35,6 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $esperado = token_disponivel() ? trim((string)file_get_contents(TOKEN_FILE)) : '';
 
     if ($esperado === '' || !hash_equals($esperado, $token)) {
+        // So token errado conta como tentativa -- e o que o limite deve conter.
+        registrar_tentativa('__primeiro_acesso__', false);
         $erro = 'Token invalido ou ja utilizado.';
     } elseif (strlen($senha1) < SENHA_MIN_CARACTERES) {
         $erro = 'A senha precisa de pelo menos ' . SENHA_MIN_CARACTERES . ' caracteres.';

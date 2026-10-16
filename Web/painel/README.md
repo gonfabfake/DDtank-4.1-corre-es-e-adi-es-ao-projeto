@@ -1,319 +1,133 @@
-# Painel de administracao DDTank 4.1
+# Painel administrativo — DDTank 4.1
 
-Painel web em **React** (sem build step) para administrar contas do seu servidor local.
+**Documentação atualizada em 16/10/2026.** Esta pasta contém um painel em **React 18 + htm**, com PHP no IIS e dados do SQL Server. Este guia substitui instruções antigas sobre ícones exclusivamente SVG ou URLs construídas apenas com `TemplateID`.
 
-**URL:** http://127.0.0.1/painel/
+> O painel **não** é o jogo. Corrigir a tela administrativa não prova que batalha, disparo, Ruffle ou os serviços de jogo estejam homologados.
 
----
+## Acesso e permissões
 
-## Arquitetura
+- URL de referência na máquina servidora: `http://127.0.0.1/painel/`.
+- `index.php` redireciona para `app.php`, que exige autenticação e entrega a aplicação React.
+- `_lib.php` aplica a lista `PAINEL_IP_LIBERADOS`, sessão, regras de autorização e CSRF.
+- Por padrão, apenas IPs de loopback estão autorizados. **Abrir o jogo no celular não libera automaticamente o painel administrativo no celular.**
+- Requisições de leitura usam `GET api.php?a=...`; gravações exigem `POST api.php?a=acao`, token `_csrf` e perfil de escrita. Todas as alterações sensíveis devem ser auditadas.
 
-```
-navegador  ──app.php──>  casca + window.BOOT (sessao, csrf, limites)
-     │
-     ├──GET  api.php?a=...        leitura
-     └──POST api.php?a=acao       escrita (csrf + papel)
-                │
-                └──_lib.php  IP, sessao, CSRF, prepared statements, auth
-                   _itens.php  regra de slot e SP_Users_Items_Add
-```
+## Organização
 
-O PHP cuida de **sessão, permissão, CSRF e dados**; o React cuida de **toda a
-interface**. O React 18 e o htm estão **vendorizados localmente** em
-`assets/vendor/` — nada é baixado de CDN em tempo de execucao, entao o painel
-funciona offline.
+| Arquivo | Uso |
+| --- | --- |
+| `index.php`, `app.php` | Entrada e bootstrap: `window.BOOT`, usuário, permissões, configuração inicial de imagens |
+| `assets/app.js` | Interface: contas, ficha, itens, imagens, auditoria e fallback SVG |
+| `assets/app.css` | Tema administrativo responsivo |
+| `assets/vendor/` | React, ReactDOM e htm locais, sem necessidade de CDN para a interface |
+| `api.php` | API JSON de contas, inventário, catálogo, imagens e auditoria |
+| `_lib.php` | Autenticação, banco, CSRF e controles de acesso |
+| `_itens.php` | Normalização do catálogo e lógica administrativa de inventário |
+| `_imgconfig.php` | Opções de recursos, segurança de URLs e padrões por categoria |
+| `img.php` | Proxy de imagem com cache em `resource/`, validação de tipo e limite de tamanho |
+| `tests/test_imagens.php` | Testes de caminhos, `TemplateID` e URLs protegidas |
+| `tests/test_img_paths.cjs` | Casos de teste do caminho montado no React |
+| `README.md` | Este guia |
 
-`htm` permite escrever template literals Tagged em vez de JSX, o que dispensa
-compilacao. Componente e `html\`<div>...</div>\``, fechamento `<\//>`.
+## 🖼️ Como as imagens são identificadas
 
-### Paginas
+O catálogo consultado em `Db_Tank41.dbo.Shop_Goods` fornece os campos:
 
-| Arquivo | Papel |
-|---|---|
-| `app.php` | casca que monta o React e injeta `window.BOOT` |
-| `index.php` | redireciona para `app.php` |
-| `api.php` | API JSON (GET leitura, POST escrita) |
-| `_lib.php` | nucleo: config, allowlist de IP, sessao, CSRF, `db_query` preparado, auth, dominio do jogo |
-| `_itens.php` | regra de bolsa/slot + `conceder_item` |
-| `assets/app.js` | a aplicacao React |
-| `assets/app.css` | layout |
-| `assets/vendor/` | react, react-dom, htm |
+| Coluna | Significado | Uso no painel |
+| --- | --- | --- |
+| `TemplateID` | ID numérico do modelo de item | Identificação; tentativa de caminho alternativa |
+| `Name` | Nome exibido do produto | Nome e busca |
+| `CategoryID` | Categoria do equipamento/item | Define pasta e formato do arquivo |
+| `Pic` | Chave textual do recurso (p. ex., `guidname`) | **Primeira chave tentada para construir o caminho** |
+| `Quality` | Qualidade do item | Cor do ícone alternativo |
 
-As paginas antigas server-rendered (`conta.php`, `itens.php`, `auditoria.php`,
-`senha.php`) continuam funcionando e sao uteis como fallback/cURL.
+O SQL identifica o registro; a imagem é buscada na resource. **`Pic` não é necessariamente uma URL completa, e `TemplateID` não é obrigatoriamente o nome da pasta.** A convenção original está em `Web/function.php::loadimage($image, $loaivp, $sex)`. Nessa função, `$image` é um parâmetro textual e `$loaivp` determina a categoria. Alguns equipamentos usam subpastas `m` e `f` conforme o sexo; o painel testa ambos os caminhos enquanto o sexo não estiver disponível no catálogo.
 
-### Endpoints
+Exemplo fornecido para uma resource:
 
-```
-GET  api.php?a=bootstrap            limites da UI
-GET  api.php?a=contas&q=            lista
-GET  api.php?a=conta&q=             ficha completa (itens, mensagens, acoes, pets, partidas)
-GET  api.php?a=catalogo&q=&cat=     catalogo
-GET  api.php?a=auditoria            log + tentativas
-POST api.php?a=acao                 nivel | cupons | moedas | admin | chat
-                                    conceder | remover
+```text
+https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png
+                                                  └── prefixo ─┘ └chave─┘
 ```
 
----
+Para um registro **hipotético** com `CategoryID=11`, `Pic=guidname` e `TemplateID=71843`, as tentativas principais são:
 
-## Imagens dos itens
-
-O jogo **nao expoe as sprites como arquivo**: `Shop_Goods.Pic` esta preenchido
-em 11.714 dos 11.715 itens, mas guarda a **chave do recurso dentro do SWF**
-(`20prize`, `Bindingvoucher`, `maya`...). As imagens reais vivem no
-`ResourceCache`, com nome SHA-1 e sem extensao — impossivel mapear por
-TemplateID sem extrair o SWF.
-
-Entao os icones sao **desenhados em SVG** a partir de dados reais
-(`CategoryID` + `Quality`), com uma silhueta por categoria e cor/borda por
-qualidade. Funciona para os 11.715 itens, sem nenhum asset externo. A chave
-`Pic` aparece no tooltip do item.
-
-As 36 imagens que existem de fato (`Web\Assets\images\img\*`, 6 por pasta) sao
-decorativas do template do portal e nao mapeiam para itens.
-
-Qualidade usa a mesma convencao do proprio jogo (`Web\function.php`):
-1 Thô · 2 Thường · 3 Bom · 4 Exelente · 5 Perfeita · 6 Ouro.
-
----
-
-## Imagens dos itens (resource online)
-
-Aba **Imagens** — http://127.0.0.1/painel/ (botao "Imagens")
-
-O jogo nao expoe as sprites como arquivo: `Shop_Goods.Pic` esta preenchido em
-11.714 dos 11.715 itens, mas guarda a **chave do recurso dentro do SWF**
-(`cloth1`, `Sgcudgel3`, `Bindingvoucher`...). As imagens reais vivem no
-`ResourceCache`, com nome SHA-1 e sem extensao.
-
-O painel aceita uma **resource online** configuravel. Caminho por categoria
-segue a convencao real do jogo, extraida de `Web\function.php::loadimage()`
-(hoje morta no portal, mas e a convencaooriginal):
-
-| Cat | Caminho relativo |
-|---|---|
-| 1 chapeu | `equip/m/head/{id}/icon_1.png` |
-| 3 cabelo | `equip/m/hair/{id}/icon_1.png` |
-| 5 roupa | `equip/m/cloth/{id}/icon_1.png` |
-| 6 olhos | `equip/m/face/{id}/icon_1.png` |
-| **7 arma** | `arm/{id}/00.png` |
-| 8 pulseira | `equip/armlet/{id}/icon.png` |
-| 9 anel | `equip/ring/{id}/icon.png` |
-| 13 terno | `equip/m/suits/{id}/icon_1.png` |
-| 14 colar | `necklace/{id}/icon.png` |
-| 35 ovo de pet | `unfrightprop/{id}/icon.png` |
-| 50/51/52 pet | `petequip/{arm\|hat\|cloth}/{id}/icon.png` |
-
-`{id}` = **TemplateID**. Sao 3 modos:
-
-| Modo | Monta |
-|---|---|
-| `padrao` | a convencao acima (padrao do jogo) |
-| `template` | `{TemplateID}.png` |
-| `pic` | `{Shop_Goods.Pic}.png` |
-
-Como configurar: aba **Imagens** -> URL base -> modo -> **Salvar** -> F5.
-A base e gravada em `C:\DDTank4.1-main\secrets\painel_img.json` (fora do
-docroot) e nada e baixado pelo servidor: o proprio navegador carrega.
-
-O botao **Testar** faz um `HEAD`/GET server-side e mostra HTTP, content-type
-e tamanho, para voce nao ficar no escuro.
-
-**Fallback garantido:** se a URL falhar, o `onError` do `<img>` volta para o
-SVG gerado. A tela nunca fica com imagem quebrada.
-
-### Resource padrao nao resolve anymore
-
-Verifiquei o CDN original (`img.ddtank.com`): o host responde, mas **todas as
-104 combinacoes de caminho testadas retornam 404** — as sprites do DDTank
-antigo nao estao mais publicadas la. Por isso a base e configuravel em vez de
-fixa.
-
-### Se voce quiser servir local
-
-A forma mais confiavel e apontar para o **proprio servidor**:
-
-1. baixe as imagens para `C:\DDTank4.1-main\Web\imagens\`;
-2. base = `http://127.0.0.1/imagens/`;
-3. modo `padrao` (ou `template`, se salvou por TemplateID).
-
-Isso elimina dependencia de terceiros e nao depende de hotlink.
-
----
-
-## Layout
-
-- topbar fixo com blur, gradiente na marca;
-- badge de nivel grande na ficha;
-- grade responsiva (`auto-fit` / `auto-fill`);
-- itens em grade com icone, nome, categoria e atributos coloridos por tipo;
-- `sticky` no cabecalho das tabelas, hover por linha;
-- responsivo (a ficha de itens colapsa em 1 coluna no celular).
-
----
-
-## Primeiro acesso
-
-1. Abra http://127.0.0.1/painel/primeiro_acesso.php
-2. Cole o token de `C:\DDTank4.1-main\secrets\painel_token.txt`
-3. Escolha a conta e a senha (marque "Promover a admin do painel")
-4. Depois entre em http://127.0.0.1/painel/
-
-O token e de **uso unico** e se invalida depois. Para gerar outro:
-
-```powershell
-.\Tools\ContaBoost\gera-token-painel.ps1
-.\Tools\ContaBoost\gera-token-painel.ps1 -Apagar   # cancela
+```text
+/image/unfrightprop/guidname/icon.png   ← Pic (prioridade)
+/image/unfrightprop/71843/icon.png      ← alternativa TemplateID
 ```
 
-A conta e a **mesma do portal**: a senha definida vale em `http://127.0.0.1/` e
-no painel. A aba **Senha** troca as duas de uma vez.
+Não se deve aplicar o mesmo ícone a todos os produtos só porque uma URL isolada respondeu. Verifique exemplos reais de **armas, roupas, acessórios e itens consumíveis** com seus valores de `Pic`.
 
----
+### Ordem de resolução no painel
 
-## O que da para fazer
+1. Lê `Pic`, `TemplateID`, `CategoryID` da API JSON.
+2. Seleciona o modelo de caminho conforme `CategoryID`.
+3. Testa o caminho montado com **`Pic`**; para categorias com sexo, testa também `equip/f/`.
+4. Se não houver imagem, tenta o **`TemplateID`** como fallback.
+5. Normaliza a base para incluir `/image/` quando foi informada apenas a raiz do host.
+6. No modo `espelho`, solicita `img.php?p=<caminho-relativo>`; se houver arquivo válido, armazena em `Web/painel/resource/`.
+7. Se nenhuma tentativa funcionar, exibe o SVG da categoria. O SVG é fallback visual, não prova que a resource existe.
 
-### Ficha da conta
-Digite nome, apelido ou UserID. Abre a ficha com 6 abas:
+**Observação:** o modo `custom` pode gerar tentativas adicionais; configurações antigas são lidas de `secrets/painel_img.json`. Se ele contiver padrões incorretos, atualize na aba Imagens e teste novamente.
 
-| Aba | Origem |
-|---|---|
-| **Resumo** | `Sys_Users_Detail`, `Sys_VIP_Info`, `Consortia`, `Sys_User_Rank`, `Sys_User_Match_Info`, `Sys_Users_Fight`, `AchievementData`, portal |
-| **Itens** | `Sys_Users_Goods` x `Shop_Goods` — icone SVG, slot, atributos, +forja |
-| **Mensagens** | `User_Messages` — 300 mais recentes, com conteudo, anexos, Gold e Cupons |
-| **Acoes** | `Sys_Users_Log` |
-| **Pets** | `Sys_Users_Pet` |
-| **Partidas** | `Fight_Record` e `Db_Count.Log_Fight` |
+### Configuração
 
-### Contas
-Lista com filtro e contagem de itens por conta. Clique em **ficha** para abrir.
+Em **Imagens**, ajuste a URL base da resource, o modo e o formato de caminho. `espelho` utiliza cache local; os modos diretos tentam o recurso externo. O painel também oferece:
 
-### Itens
-Busca com debounce nos 11.715 itens. Concede item (move o anterior para a
-mochila, nunca duplica) e remove do inventario.
+- **Testar URL direta:** examina o endereço completo informado, sem alterar a configuração.
+- **Validar e salvar padrão por TemplateID:** exige exemplo que tenha um `TemplateID` numérico real na URL e usa POST + CSRF.
+- **Testar candidatos:** consulta alguns caminhos usuais para inspeção. Resultado negativo não significa que todas as imagens estejam ausentes.
+- **Cache local e prévia:** mostra quantos arquivos foram guardados e usa o catálogo para exibir exemplos.
 
-### Auditoria
-Tudo que foi feito, por quem, quando e de qual IP + tentativas de login.
+A configuração do painel fica em `secrets/painel_img.json` **fora de `Web/`**, no arranjo de pastas deste projeto. Não coloque credenciais nesse arquivo. O cache `resource/` fica dentro da árvore do IIS: confira as permissões e as regras de publicação de arquivos estáticos do seu servidor.
 
----
+### Consulta de diagnóstico no banco (somente leitura)
 
-## Regras do jogo respeitadas
+Acesse o **seu SQL Server** com um cliente autorizado e execute, em ambiente apropriado:
 
-- **Nivel** e derivado de GP via `Db_Tank.dbo.LevelInfo`. O painel le o GP da
-  faixa oficial; nunca digita GP na mao.
-- **Cupons** = coluna `Money` (`INT`: teto 2.147.483.647).
-- **Itens** entram por `SP_Users_Items_Add`, a mesma procedure de
-  `PlayerBussiness.AddGoods`. `ItemID` e IDENTITY, `ValidDate = 0`,
-  `Hole1..6 = -1`.
-- **Slot** de equipamento e `CategoryID - 1`: 0 chapeu, 2 cabelo, 4 roupa,
-  5 olhos, **6 arma**, 7 pulseira, 9 anel, 11 terno, 12 colar. O painel
-  **rejeita** item em slot incompativel.
-- **Bolsa 0**: equipado 0..30, mochila 31..79. **Bolsa 1**: 0..48.
-
-> **A conta precisa estar OFFLINE.** `GamePlayer.SaveIntoDatabase()` chama
-> `SP_Users_Update`, que sobrescreve `Grade`/`GP`/`Money` com os valores em
-> memoria. Online, a mudanca e perdida.
-
----
-
-## Sobre replay de partida
-
-**Este servidor nao grava replay, e o painel nao tem como mostrar o que nao
-existe.** Nao e falha do painel: o codigo que registraria as partidas esta
-desconectado no proprio servidor C#.
-
-- `m_saveRecordTimer` e declarado mas nunca instanciado
-  (`GameServer.cs:49, 205-206`);
-- `LogFightAdd` (`Statics/LogMgr.cs:60`) **nao tem nenhum chamador**;
-- o evento `GameOverLog` (`Game.Logic/BaseGame.cs:84`) nunca e assinado, entao
-  o `return` de `BaseGame.cs:1513` aborta sempre;
-- `LogMoneyAdd` — a sobrecarga realmente chamada — tem um
-  `lock (m_LogMoney) ;` **vazio** (`LogMgr.cs:213-214`);
-- `CountBussiness.SetConfig()` nunca e chamado, logo `CountRecord` fica
-  `false`.
-
-Resultado: `Fight_Record` = 0 linhas, `Log_Fight` = 0, `Log_Money` = 0.
-
-E mesmo ligado, `Log_Fight.Detail` guardaria so um texto de atributos dos
-jogadores em partida de **boss** (`PVEGame.cs:1048-1071`) — nao a sequencia de
-tiros. **O projeto nao tem gravacao de acoes.**
-
-### Ligar o registro (patch de codigo, requer recompilar)
-
-| # | Arquivo | O que fazer |
-|---|---|---|
-| 1 | `Game.Server\Server\GameServer.cs:205` | instanciar `m_saveRecordTimer` antes do `.Change()` |
-| 2 | `GameServer.cs` / `BaseGame.cs` | assinar `game.GameOverLog += LogMgr.LogFightAdd` |
-| 3 | `Game.Server\Server\Statics\LogMgr.cs:213` | `lock (...) ;` -> `lock (...) m_LogMoney.Rows.Add(objArray);` |
-| 4 | `CountBussiness.cs` | chamar `SetConfig(...)` no startup |
-| 5 | `ItemRecordBussiness.cs:151-165` | alinhar os 15 `ColumnMappings` as 16 colunas reais |
-
----
-
-## Seguranca
-
-| Medida | Onde |
-|---|---|
-| So `127.0.0.1` / `::1` | `PAINEL_IP_LIBERADOS` em `_lib.php` |
-| Login pela conta real do jogo | `entrar.php` (MD5, igual ao portal) |
-| Autorizacao por `Admin_Usuarios` | papel `admin` ou `leitura` |
-| CSRF em todo POST | `csrf_validar()`; o token vai no `window.BOOT` |
-| Limite de forca bruta | 5 falhas / 15 min por conta |
-| Sessao | `HttpOnly`, `SameSite=Strict`, regenerada no login |
-| SQL | **sempre** prepared statement |
-| Saida | React escapa por padrao (o `dangerouslySetInnerHTML` nao e usado) |
-| Cabecalhos | `nosniff`, `DENY` frame, `no-store` |
-| Auditoria | toda acao gravada com IP |
-
-Liberar a rede: descomente o IP em `_lib.php`. **Nao recomendo.**
-
-> **Armadilhas ja vistas aqui:**
-> - `sqlsrv` devolve `datetime` como objeto `DateTime` — a API converte com
->   `data_txt()` antes do `json_encode`.
-> - Controle de transacao tem que usar `sqlsrv_begin_transaction/commit/rollback`;
->   `"BEGIN TRAN"` como texto **nao funciona** (MARS).
-> - Ao escrever PHP pelo PowerShell, grave **sem BOM**
->   (`UTF8Encoding($false)`) — senao o FastCGI responde 500.0 sem nenhuma pista.
-
----
-
-## Testes
-
-```powershell
-.\Tools\ContaBoost\teste-api.ps1     # 35 verificacoes: SPA, vendor, API, CSRF, validacoes
-.\Tools\ContaBoost\teste-conta.ps1   # 27 verificacoes da ficha server-rendered
-.\Tools\ContaBoost\teste-painel.ps1  # fluxo completo: primeiro acesso -> login -> acoes
+```sql
+SELECT TOP (40)
+    TemplateID, Name, CategoryID, Pic, Quality
+FROM Db_Tank41.dbo.Shop_Goods
+WHERE Pic IS NOT NULL AND LTRIM(RTRIM(Pic)) <> ''
+ORDER BY CategoryID, TemplateID;
 ```
 
----
+Essa consulta **não modifica dados**. Compare os valores de `Pic` com a pasta gerada para cada categoria e teste uma URL existente. O ChatGPT não tem conexão com a instância de produção do seu SQL Server; conclusões sobre registros específicos precisam do retorno da consulta ou de testes na instalação.
 
-## Banco
+## Proteção das imagens remotas
 
-Criado em `Db_Tank41`:
+- O proxy verifica esquemas HTTP(S), resolve host público, bloqueia IPs privados/reservados, impede redirecionamentos e limita o tamanho do download.
+- Apenas imagens raster identificáveis (PNG, JPEG, GIF e WebP) entram no cache do `img.php`. SVG gerado pelo painel é local.
+- Os controles são uma camada de proteção; ainda é necessário configurar as permissões do IIS, monitorar logs e validar casos reais.
+- `img.php` não é um substituto para os recursos do cliente SWF; o cache aqui é do **painel administrativo**.
 
-- `Admin_Usuarios` — quem acessa o painel
-- `Admin_Auditoria` — log de acoes
-- `Admin_Tentativas` — tentativas de login
+## Testes e homologação
 
-Script: `Tools\ContaBoost\painel_01_schema.sql` (idempotente).
-`usaimbot` (UserID 25) ja esta como `admin` e em `Game_Commands` com
-`AllCommands` (libera `$ban$`, `$kick$`, `$mute$`, `$unban$`, `$bugbot$`).
+No GitHub Actions, o workflow `.github/workflows/painel-qualidade.yml` executa análise de sintaxe PHP, `node --check` e casos de regressão de imagens. Isso **não acessa seu banco ou IIS**.
 
-## URL de referencia com nome fixo (16/10/2026)
+Quando estiver com o ambiente Windows:
 
-Exemplo informado: `https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png`.
+1. Abra `http://127.0.0.1/painel/` com conta administrativa permitida.
+2. Vá em **Itens** e confira pelo menos um item com `Pic` válido por categoria.
+3. Em **Imagens**, teste a URL direta de `guidname` e uma URL real de arma/roupa.
+4. Verifique a aba de rede do navegador: a sequência deve tentar a chave `Pic` e, se necessário, o `TemplateID`.
+5. Verifique a existência dos arquivos no cache e confirme que o painel permanece funcional em contas e auditoria.
+6. Se necessário, faça backup do JSON de configuração e execute os testes de sintaxe antes de reiniciar serviços.
 
-O segmento `guidname` e um nome literal, e **nao** um TemplateID numerico.
-Para verificar esse tipo de imagem, abra a aba Imagens e clique em
-**Testar URL direta**. Esse teste nao modifica a configuracao gravada.
-A funcao **Validar e salvar padrao por TemplateID** continua reservada
-a URLs que contenham um identificador numerico real.
+### Problemas conhecidos e limites
 
-Se for confirmado que outras imagens usam a estrutura `/image/`,
-a URL base correspondente e
-`https://resbr51-myddt-ofc.ddtankswordgames.com/image/`.
-Nao altere a configuracao de todos os itens somente com base neste unico exemplo:
-o mapeamento por categoria deve ser testado com imagens de diferentes itens.
+- **Sem imagem:** host pode estar indisponível; chave `Pic` pode representar sprite de SWF e não arquivo online; a categoria, sexo ou pasta podem divergir.
+- **Cache antigo:** uma imagem baixada anteriormente pode ocultar mudanças da resource; investigue o arquivo específico antes de removê-lo.
+- **Falha ao salvar:** confirme permissões em `secrets/` e configuração de CSRF, papel e IP.
+- **Compilação do cliente Flash e combate:** estão fora do escopo do painel e **não** foram solucionados por estas alterações.
 
-Observacao: disponibilidade do host precisa ser verificada no servidor Windows;
-os testes automatizados validam o codigo sem requerer acesso externo.
+## Fontes de verdade
+
+- [README principal](../../README.md) — panorama atual da instalação e da jogabilidade.
+- [`Web/function.php`](../function.php) — convenções originais dos caminhos de imagens.
+- [`IIS_VALIDADO.md`](../../IIS_VALIDADO.md) — configuração do IIS verificada no ambiente registrado.
+- [`SEGURANCA-SQL.md`](../../SEGURANCA-SQL.md) — restrições de acesso ao banco.
+
+Este documento descreve a versão do painel da branch de manutenção de outubro de 2026. A integração na branch principal deve ocorrer apenas depois da revisão dos testes e da verificação no servidor Windows.

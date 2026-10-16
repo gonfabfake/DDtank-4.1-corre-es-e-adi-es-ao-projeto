@@ -28,12 +28,21 @@ function img_caminhos(): array {
         17 => 'equip/offhand/{id}/icon.png',
         19 => 'prop/{id}/icon.png',
         20 => 'prop/{id}/icon.png',
-        34 => 'prop/{id}/icon.png',
+        34 => 'unfrightprop/{id}/icon.png',
         35 => 'unfrightprop/{id}/icon.png',
         50 => 'petequip/arm/{id}/icon.png',
         51 => 'petequip/hat/{id}/icon.png',
         52 => 'petequip/cloth/{id}/icon.png',
     ];
+}
+
+/* O link do recurso usa /image/ antes do caminho por categoria.
+   Preserva bases personalizadas que ja possuem caminho proprio. */
+function img_resource_base(string $base): string {
+    $base = rtrim(trim($base), '/') . '/';
+    if ($base === '/') return '';
+    $path = (string)(parse_url($base, PHP_URL_PATH) ?: '/');
+    return ($path === '/' ? $base . 'image/' : $base);
 }
 
 function img_config_padrao(): array {

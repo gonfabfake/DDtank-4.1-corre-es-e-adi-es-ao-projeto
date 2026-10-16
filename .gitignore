@@ -361,3 +361,4 @@ Request/Web.config.bak
 Web/web.config.orig
 Web/web.config.pre-fastcgi.bak
 Web/web.config.*.bak
+.ghu-backup/

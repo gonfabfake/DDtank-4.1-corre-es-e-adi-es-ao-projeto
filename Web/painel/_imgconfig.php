@@ -153,3 +153,32 @@ function img_consulta_publica(string $url, bool $head = false, int $limite = 209
         'body' => $body, 'erro' => $erro,
         'achou' => ($resultado !== false && $status === 200 && stripos($tipo, 'image/') === 0)];
 }
+
+/* Deducao deterministica de caminho; testavel sem banco/IIS/rede. */
+function img_derivar_template(string $url, string $id): array {
+    if ($url === '' || strlen($url) > 2000 || !preg_match('~^[0-9]{1,10}$~D', $id)) {
+        throw new InvalidArgumentException('URL ou TemplateID invalido.');
+    }
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+        || isset($parts['query']) || isset($parts['fragment'])
+        || isset($parts['user']) || isset($parts['pass'])) {
+        throw new InvalidArgumentException('Use URL de imagem direta, sem parametros.');
+    }
+    $path = (string)($parts['path'] ?? '');
+    $tpl = preg_replace('~(?<![0-9])' . preg_quote($id, '~') . '(?![0-9])~',
+        '{id}', $path, 1, $qtd);
+    if ($qtd !== 1 || !is_string($tpl)) {
+        throw new InvalidArgumentException('Caminho nao contem TemplateID exato.');
+    }
+    $tpl = ltrim($tpl, '/');
+    if ($tpl === '' || strlen($tpl) > 250 || str_contains($tpl, '..')
+        || !preg_match('~^[a-zA-Z0-9_./{}-]+$~D', $tpl)
+        || !preg_match('~\\.(png|jpg|jpeg|gif|webp)$~iD', $tpl)) {
+        throw new InvalidArgumentException('Modelo de imagem nao suportado.');
+    }
+    $porta = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
+    $base = strtolower($parts['scheme']) . '://' . strtolower($parts['host']) . $porta . '/';
+    return ['base' => $base, 'template' => $tpl];
+}

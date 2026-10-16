@@ -36,34 +36,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                    'csrf' => csrf_token(), 'img' => $ic]);
     }
 
-    /* Testa a resource online sem sair do servidor. */
+    /* Consulta somente URLs publicas, com limite de download e sem redirects. */
     if ($a === 'imgteste') {
-        $base = rtrim((string)($_GET['base'] ?? ''), '/') . '/';
+        $base = trim((string)($_GET['base'] ?? ''));
         $tpl  = (string)($_GET['tpl'] ?? 'arm/{id}/00.png');
         $id   = (string)($_GET['id'] ?? '71843');
-        $u    = $base . str_replace('{id}', $id, $tpl);
-        $ok = false; $ct = ''; $tam = 0; $motivo = '';
-        if ($base === '') { $motivo = 'base vazia'; }
-        else {
-            $ch = curl_init($u);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_NOBODY => false,
-                CURLOPT_USERAGENT => 'Mozilla/5.0 painel-ddt',
-            ]);
-            $body = curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-            $tam  = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
-            $erro = curl_error($ch);
-            curl_close($ch);
-            $ok = ($code === 200 && stripos($ct, 'image/') === 0);
-            $motivo = $ok ? '' : ($erro ?: "HTTP $code, content-type: " . ($ct ?: 'vazio'));
+        if ($base === '' || !preg_match('~^[0-9]{1,10}$~D', $id)
+            || strlen($tpl) > 250 || str_contains($tpl, '..')) falha('Parametros invalidos.', 400);
+        $u = rtrim($base, '/') . '/' . str_replace('{id}', $id, ltrim($tpl, '/'));
+        try {
+            $r = img_consulta_publica($u);
+        } catch (Throwable $e) {
+            falha('Resource invalida: ' . $e->getMessage(), 400);
         }
-        responder(['ok' => true, 'url' => $u, 'achou' => $ok, 'status' => $code ?? 0,
-                   'contentType' => $ct, 'bytes' => $tam, 'motivo' => $motivo]);
+        responder(['ok' => true, 'url' => $u, 'achou' => $r['achou'],
+            'status' => $r['status'], 'contentType' => $r['contentType'],
+            'bytes' => $r['bytes'], 'motivo' => $r['achou'] ? '' :
+                ($r['erro'] ?: 'HTTP ' . $r['status'] . ', ' . $r['contentType'])]);
     }
 
     if ($a === 'contas') {
@@ -183,11 +172,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             db_query($sql, [$q, $like, $q, $catInt, $catInt]))]);
     }
 
-    /* Descobre o padrão de caminho da resource testando varios candidatos. */
+    /* Descoberta por HEAD, sempre sem efeitos colaterais. */
     if ($a === 'imgdescobrir') {
-        $base = rtrim((string)($_GET['base'] ?? ''), '/') . '/';
-        $id   = (string)($_GET['id'] ?? '71843');
-        $pic  = (string)($_GET['pic'] ?? '');
+        $base = trim((string)($_GET['base'] ?? ''));
+        $id = (string)($_GET['id'] ?? '71843');
+        $pic = (string)($_GET['pic'] ?? '');
+        if ($base === '' || !preg_match('~^[0-9]{1,10}$~D', $id))
+            falha('Resource ou TemplateID invalido.', 400);
+        $base = rtrim($base, '/') . '/';
+        try {
+            $c = img_curl_seguro($base);
+            curl_close($c);
+        } catch (Throwable $e) { falha('Resource invalida: ' . $e->getMessage(), 400); }
         $cands = [
             "arm/$id/00.png", "equip/m/cloth/$id/icon_1.png", "equip/m/head/$id/icon_1.png",
             "equip/m/hair/$id/icon_1.png", "equip/m/face/$id/icon_1.png",
@@ -198,57 +194,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             "image/arm/$id/00.png", "image/equip/m/cloth/$id/icon_1.png",
             "$id.png", "image/$id.png", "item/$id.png", "shop/$id.png",
         ];
-        if ($pic !== '') array_push($cands, "$pic.png", "image/$pic.png", "item/$pic.png", "icon/$pic.png");
-
+        if ($pic !== '' && preg_match('~^[a-zA-Z0-9_-]{1,80}$~D', $pic))
+            array_push($cands, "$pic.png", "image/$pic.png", "item/$pic.png", "icon/$pic.png");
         $achados = []; $testados = 0;
         foreach ($cands as $rel) {
             $testados++;
-            $ch = curl_init($base . $rel);
-            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>8,
-                CURLOPT_FOLLOWLOCATION=>false, CURLOPT_USERAGENT=>'Mozilla/5.0 painel-ddt',
-                CURLOPT_NOBODY=>true, CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS]);
-            curl_exec($ch);
-            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-            curl_close($ch);
-            if ($code === 200 && stripos($ct, 'image/') === 0) $achados[] = $rel;
+            try {
+                $resultado = img_consulta_publica($base . $rel, true);
+                if ($resultado['achou']) $achados[] = $rel;
+            } catch (Throwable $e) {
+                falha('Resource invalida: ' . $e->getMessage(), 400);
+            }
             if (count($achados) >= 5) break;
         }
         responder(['ok' => true, 'base' => $base, 'testados' => $testados, 'achados' => $achados]);
     }
 
-    /* Deriva o padrao de caminho a partir de uma URL que o usuario confirma
-   que funciona. Troca o TemplateID de exemplo por {id}. */
-    if ($a === 'imgderivar') {
-        $url = trim((string)($_GET['url'] ?? ''));
-        $id  = (string)($_GET['id'] ?? '71843');
-        if ($url === '' || !preg_match('~^https?://~i', $url)) falha('informe uma URL http(s) completa.', 400);
-        if (strpos($url, $id) === false) {
-            falha("a URL precisa conter o TemplateID de teste ($id) para eu deduzir o padrão.", 400);
-        }
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>15,
-            CURLOPT_FOLLOWLOCATION=>false, CURLOPT_USERAGENT=>'Mozilla/5.0 painel-ddt',
-            CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS|CURLPROTO_HTTP]);
-        curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        $tam  = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
-        curl_close($ch);
-        if ($code !== 200 || stripos($ct, 'image/') !== 0) {
-            responder(['ok' => true, 'achou' => false, 'status' => $code,
-                       'contentType' => $ct, 'motivo' => "HTTP $code, $ct"]);
-        }
-        // separa base ( ate o primeiro TemplateID ) do template
-        $pos = strpos($url, $id);
-        $base = substr($url, 0, $pos);
-        $tpl  = substr($url, $pos);
-        $cfg  = img_config_gravar(['base' => $base, 'modo' => 'espelho',
-                                   'caminho' => 'custom', 'template_custom' => $tpl]);
-        responder(['ok' => true, 'achou' => true, 'base' => $base, 'template' => $tpl,
-                   'cfg' => $cfg, 'bytes' => $tam, 'contentType' => $ct,
-                   'exemplo' => str_replace('{id}', $id, $tpl)]);
-    }
+    /* Derivar realiza escrita e, portanto, exige POST+CSRF; GET nao altera nada. */
+    if ($a === 'imgderivar') falha('Use POST autenticado para derivar e salvar.', 405);
 
     if ($a === 'imgconfig') {
         responder(['ok' => true, 'cfg' => img_config_ler(), 'modelos' => img_caminhos()]);
@@ -257,8 +220,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($a === 'imgcache') {
         $dir = __DIR__ . '/resource';
         $n = 0; $bytes = 0;
-        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
-        foreach ($it as $f) { if ($f->isFile()) { $n++; $bytes += $f->getSize(); } }
+        if (is_dir($dir)) {
+            $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+            foreach ($it as $f) { if ($f->isFile()) { $n++; $bytes += $f->getSize(); } }
+        }
         responder(['ok' => true, 'arquivos' => $n, 'bytes' => $bytes,
                    'pasta' => 'C:\\DDTank4.1-main\\Web\\painel\\resource']);
     }
@@ -286,14 +251,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
     $acao   = (string)($_POST['acao'] ?? '');
     $userID = (int)($_POST['userid'] ?? 0);
 
+    /* Deducao de template grava configuracao: POST, papel autorizado e CSRF acima. */
+    if ($acao === 'imgderivar') {
+        $url = trim((string)($_POST['url'] ?? ''));
+        $id = (string)($_POST['id'] ?? '');
+        if ($url === '' || strlen($url) > 2000
+            || !preg_match('~^[0-9]{1,10}$~D', $id)) falha('URL ou TemplateID invalido.', 400);
+        $parts = parse_url($url);
+        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
+            || isset($parts['query']) || isset($parts['fragment'])
+            || isset($parts['user']) || isset($parts['pass'])) {
+            falha('Use uma URL direta de imagem, sem parametros ou credenciais.', 400);
+        }
+        $path = (string)($parts['path'] ?? '');
+        // Substitui apenas ID numerico integral, preservando todos os diretorios.
+        $tpl = preg_replace('~(?<![0-9])' . preg_quote($id, '~') . '(?![0-9])~',
+            '{id}', $path, 1, $substituicoes);
+        if ($substituicoes !== 1 || !is_string($tpl)) {
+            falha('O caminho deve conter o TemplateID exato.', 400);
+        }
+        $tpl = ltrim($tpl, '/');
+        if ($tpl === '' || strlen($tpl) > 250 || str_contains($tpl, '..')
+            || !preg_match('~^[a-zA-Z0-9_./{}-]+$~D', $tpl)
+            || !preg_match('~\\.(png|jpg|jpeg|gif|webp)$~iD', $tpl)) {
+            falha('Caminho de imagem nao suportado.', 400);
+        }
+        try {
+            $res = img_consulta_publica($url);
+            if (!$res['achou']) {
+                responder(['ok' => true, 'achou' => false, 'status' => $res['status'],
+                    'contentType' => $res['contentType'], 'motivo' =>
+                    ($res['erro'] ?: 'HTTP ' . $res['status'] . ', ' . $res['contentType'])]);
+            }
+            $porta = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
+            $base = strtolower($parts['scheme']) . '://' . $parts['host'] . $porta . '/';
+            $cfg = img_config_gravar(['base' => $base, 'modo' => 'espelho',
+                'caminho' => 'custom', 'template_custom' => $tpl]);
+        } catch (Throwable $e) {
+            falha('Nao foi possivel validar a imagem: ' . $e->getMessage(), 400);
+        }
+        db_exec("INSERT INTO Db_Tank41.dbo.Admin_Auditoria (AdminID, AdminNome, Acao, Detalhe, IP)
+                 VALUES (?, ?, 'imgderivar', ?, ?)",
+                 [admin_dados()['UserID'], admin_dados()['UserName'],
+                    'base=' . $cfg['base'] . ' template=' . $tpl, painel_ip_cliente()]);
+        responder(['ok' => true, 'achou' => true, 'base' => $base,
+            'template' => $tpl, 'cfg' => $cfg, 'bytes' => $res['bytes'],
+            'contentType' => $res['contentType'],
+            'exemplo' => str_replace('{id}', $id, $tpl)]);
+    }
+
     /* Config de imagem nao e operacao de conta: resolve antes de exigir userid. */
     if ($acao === 'imgconfig') {
-        $cfg = img_config_gravar([
-            'base'    => (string)($_POST['base'] ?? ''),
-            'modo'    => (string)($_POST['modo'] ?? 'espelho'),
-            'caminho' => (string)($_POST['caminho'] ?? 'padrao'),
-            'mostrar' => (int)($_POST['mostrar'] ?? 1),
-        ]);
+        try {
+            $cfg = img_config_gravar([
+                'base'    => (string)($_POST['base'] ?? ''),
+                'modo'    => (string)($_POST['modo'] ?? 'espelho'),
+                'caminho' => (string)($_POST['caminho'] ?? 'padrao'),
+                'mostrar' => (int)($_POST['mostrar'] ?? 1),
+            ]);
+        } catch (Throwable $e) {
+            falha('Configuracao invalida: ' . $e->getMessage(), 400);
+        }
         db_exec("INSERT INTO Db_Tank41.dbo.Admin_Auditoria (AdminID, AdminNome, Acao, Detalhe, IP)
                  VALUES (?, ?, 'imgconfig', ?, ?)",
                 [admin_dados()['UserID'], admin_dados()['UserName'],

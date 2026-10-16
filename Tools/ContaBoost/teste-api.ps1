@@ -119,6 +119,22 @@ $body = "_csrf=$csrf&acao=conceder&userid=$uid&templateid=71843&bagtype=0&place=
 try { Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita slot incompativel' $false }
 catch { Chk 'rejeita slot incompativel' ($_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
 
+Write-Host "`n=== gravar config de imagem ===" -ForegroundColor Cyan
+$body = "_csrf=$csrf&acao=imgconfig&base=https://exemplo.com/ddt/&modo=pic&mostrar=1"
+try {
+  $r = Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $body
+  $d = $r.Content | ConvertFrom-Json
+  Chk 'POST imgconfig'  ($d.ok -eq $true) $r.Content
+  Chk 'base normalizada' ($d.cfg.base -eq 'https://exemplo.com/ddt/') "base='$($d.cfg.base)'"
+  Chk 'modo gravado'    ($d.cfg.modo -eq 'pic') "modo=$($d.cfg.modo)"
+  Chk 'arquivo em secrets' (Test-Path 'C:\DDTank4.1-main\secrets\painel_img.json')
+  # volta ao padrao vazio
+  $body = "_csrf=$csrf&acao=imgconfig&base=&modo=padrao&mostrar=1"
+  $r = Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $body
+  $d = $r.Content | ConvertFrom-Json
+  Chk 'volta ao padrao' ($d.cfg.base -eq '' -and $d.cfg.modo -eq 'padrao') "base='$($d.cfg.base)' modo=$($d.cfg.modo)"
+} catch { Chk 'POST imgconfig' $false $_.Exception.Message }
+
 Write-Host ''
 if ($falhas -eq 0) { Write-Host 'API + SPA: TUDO OK' -ForegroundColor Green }
 else { Write-Host "$falhas FALHA(S)" -ForegroundColor Red }

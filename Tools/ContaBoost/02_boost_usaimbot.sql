@@ -136,17 +136,22 @@ BEGIN
     END
 
     /* 3.2 Reaproveita o template se ele ja existir na conta em outro slot
-           (evita duplicar o mesmo item a cada execucao).                  */
+           (evita duplicar o mesmo item a cada execucao).
+           Zerar @ItemID antes: SELECT sem linhas nao limpa a variavel.     */
+    SET @ItemID = NULL;
     SELECT @ItemID = ItemID
     FROM Db_Tank41.dbo.Sys_Users_Goods
     WHERE UserID = @UserID AND TemplateID = @TemplateID
       AND IsExist = 1 AND BagType = @BagType AND Place = @Place;
 
     IF @ItemID IS NULL
-        SELECT @ItemID = ItemID
+    BEGIN
+        SET @ItemID = NULL;
+        SELECT @ItemID = MIN(ItemID)
         FROM Db_Tank41.dbo.Sys_Users_Goods
         WHERE UserID = @UserID AND TemplateID = @TemplateID
           AND IsExist = 1 AND BagType = @BagType AND Place <> @Place;
+    END
 
     IF @ItemID IS NOT NULL
     BEGIN

@@ -77,6 +77,81 @@ Qualidade usa a mesma convencao do proprio jogo (`Web\function.php`):
 
 ---
 
+## Imagens dos itens (resource online)
+
+Aba **Imagens** — http://127.0.0.1/painel/ (botao "Imagens")
+
+O jogo nao expoe as sprites como arquivo: `Shop_Goods.Pic` esta preenchido em
+11.714 dos 11.715 itens, mas guarda a **chave do recurso dentro do SWF**
+(`cloth1`, `Sgcudgel3`, `Bindingvoucher`...). As imagens reais vivem no
+`ResourceCache`, com nome SHA-1 e sem extensao.
+
+O painel aceita uma **resource online** configuravel. Caminho por categoria
+segue a convencao real do jogo, extraida de `Web\function.php::loadimage()`
+(hoje morta no portal, mas e a convencaooriginal):
+
+| Cat | Caminho relativo |
+|---|---|
+| 1 chapeu | `equip/m/head/{id}/icon_1.png` |
+| 3 cabelo | `equip/m/hair/{id}/icon_1.png` |
+| 5 roupa | `equip/m/cloth/{id}/icon_1.png` |
+| 6 olhos | `equip/m/face/{id}/icon_1.png` |
+| **7 arma** | `arm/{id}/00.png` |
+| 8 pulseira | `equip/armlet/{id}/icon.png` |
+| 9 anel | `equip/ring/{id}/icon.png` |
+| 13 terno | `equip/m/suits/{id}/icon_1.png` |
+| 14 colar | `necklace/{id}/icon.png` |
+| 35 ovo de pet | `unfrightprop/{id}/icon.png` |
+| 50/51/52 pet | `petequip/{arm\|hat\|cloth}/{id}/icon.png` |
+
+`{id}` = **TemplateID**. Sao 3 modos:
+
+| Modo | Monta |
+|---|---|
+| `padrao` | a convencao acima (padrao do jogo) |
+| `template` | `{TemplateID}.png` |
+| `pic` | `{Shop_Goods.Pic}.png` |
+
+Como configurar: aba **Imagens** -> URL base -> modo -> **Salvar** -> F5.
+A base e gravada em `C:\DDTank4.1-main\secrets\painel_img.json` (fora do
+docroot) e nada e baixado pelo servidor: o proprio navegador carrega.
+
+O botao **Testar** faz um `HEAD`/GET server-side e mostra HTTP, content-type
+e tamanho, para voce nao ficar no escuro.
+
+**Fallback garantido:** se a URL falhar, o `onError` do `<img>` volta para o
+SVG gerado. A tela nunca fica com imagem quebrada.
+
+### Resource padrao nao resolve anymore
+
+Verifiquei o CDN original (`img.ddtank.com`): o host responde, mas **todas as
+104 combinacoes de caminho testadas retornam 404** — as sprites do DDTank
+antigo nao estao mais publicadas la. Por isso a base e configuravel em vez de
+fixa.
+
+### Se voce quiser servir local
+
+A forma mais confiavel e apontar para o **proprio servidor**:
+
+1. baixe as imagens para `C:\DDTank4.1-main\Web\imagens\`;
+2. base = `http://127.0.0.1/imagens/`;
+3. modo `padrao` (ou `template`, se salvou por TemplateID).
+
+Isso elimina dependencia de terceiros e nao depende de hotlink.
+
+---
+
+## Layout
+
+- topbar fixo com blur, gradiente na marca;
+- badge de nivel grande na ficha;
+- grade responsiva (`auto-fit` / `auto-fill`);
+- itens em grade com icone, nome, categoria e atributos coloridos por tipo;
+- `sticky` no cabecalho das tabelas, hover por linha;
+- responsivo (a ficha de itens colapsa em 1 coluna no celular).
+
+---
+
 ## Primeiro acesso
 
 1. Abra http://127.0.0.1/painel/primeiro_acesso.php

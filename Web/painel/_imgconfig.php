@@ -38,9 +38,10 @@ function img_caminhos(): array {
 
 function img_config_padrao(): array {
     return [
-        'base'   => '',      // ex.: https://cdn.exemplo.com/ddt/
-        'modo'   => 'padrao',// padrao | template | pic
-        'mostrar'=> true,     // mostra o icone SVG junto quando a online falha
+        'base'    => 'https://resbr51-myddt-ofc.ddtankswordgames.com/',
+        'modo'    => 'espelho',  // espelho | padrao | template | pic
+        'caminho' => 'padrao',   // usado quando modo = espelho
+        'mostrar' => true,
     ];
 }
 
@@ -62,7 +63,8 @@ function img_config_ler(): array {
 function img_config_gravar(array $novo): array {
     $c = img_config_ler();
     if (isset($novo['base']))   $c['base'] = rtrim(trim((string)$novo['base']), '/') . (trim((string)$novo['base']) !== '' ? '/' : '');
-    if (isset($novo['modo']) && in_array($novo['modo'], ['padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
+    if (isset($novo['modo']) && in_array($novo['modo'], ['espelho','padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
+    if (isset($novo['caminho']) && in_array($novo['caminho'], ['padrao','template','pic'], true)) $c['caminho'] = $novo['caminho'];
     if (isset($novo['mostrar'])) $c['mostrar'] = (int)$novo['mostrar'] === 1;
     $dir = dirname(IMG_CONFIG_FILE);
     if (!is_dir($dir)) @mkdir($dir, 0777, true);

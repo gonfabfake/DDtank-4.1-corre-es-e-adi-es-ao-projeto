@@ -256,9 +256,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
     /* Config de imagem nao e operacao de conta: resolve antes de exigir userid. */
     if ($acao === 'imgconfig') {
         $cfg = img_config_gravar([
-            'base'   => (string)($_POST['base'] ?? ''),
-            'modo'   => (string)($_POST['modo'] ?? 'padrao'),
-            'mostrar'=> (int)($_POST['mostrar'] ?? 1),
+            'base'    => (string)($_POST['base'] ?? ''),
+            'modo'    => (string)($_POST['modo'] ?? 'espelho'),
+            'caminho' => (string)($_POST['caminho'] ?? 'padrao'),
+            'mostrar' => (int)($_POST['mostrar'] ?? 1),
         ]);
         db_exec("INSERT INTO Db_Tank41.dbo.Admin_Auditoria (AdminID, AdminNome, Acao, Detalhe, IP)
                  VALUES (?, ?, 'imgconfig', ?, ?)",

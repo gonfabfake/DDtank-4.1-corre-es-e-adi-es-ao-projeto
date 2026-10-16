@@ -684,11 +684,14 @@ function ViewItens({ avisar }) {
 /* Resource online de imagens                                          */
 /* ------------------------------------------------------------------ */
 function ViewImagens({ avisar }) {
-  const [cfg, setCfg] = useState((window.BOOT && window.BOOT.img) || { base: '', modo: 'padrao', mostrar: 1 });
+  const [cfg, setCfg] = useState((window.BOOT && window.BOOT.img)
+    || { base: '', modo: 'espelho', caminho: 'padrao', mostrar: 1 });
   const [modelos, setModelos] = useState({});
   const [teste, setTeste] = useState(null);
   const [tpl, setTpl] = useState('arm/{id}/00.png');
   const [id, setId] = useState('71843');
+  const [desc, setDesc] = useState(null);
+  const [cache, setCache] = useState(null);
   const [amostra, setAmostra] = useState([]);
 
   useEffect(() => {
@@ -696,6 +699,7 @@ function ViewImagens({ avisar }) {
       setCfg(d.cfg); setModelos(d.modelos);
       setTpl(d.modelos['7'] || 'arm/{id}/00.png');
     }).catch(e => avisar('erro', e.message));
+    api('imgcache').then(setCache).catch(() => {});
   }, [avisar]);
 
   useEffect(() => {
@@ -704,7 +708,8 @@ function ViewImagens({ avisar }) {
 
   const salvar = async () => {
     try {
-      const r = await api('acao', { acao: 'imgconfig', base: cfg.base, modo: cfg.modo, mostrar: cfg.mostrar ? 1 : 0 }, 'POST');
+      const r = await api('acao', { acao: 'imgconfig', base: cfg.base, modo: cfg.modo,
+                                    caminho: cfg.caminho, mostrar: cfg.mostrar ? 1 : 0 }, 'POST');
       BOOT.img = r.cfg || BOOT.img;
       avisar('bom', 'Configuracao salva. Recarregue a pagina (F5) para aplicar em todas as telas.');
     } catch (e) { avisar('erro', e.message); }
@@ -712,42 +717,88 @@ function ViewImagens({ avisar }) {
 
   const testar = async () => {
     setTeste({ rodando: true });
+    try { setTeste(await api('imgteste', { base: cfg.base, tpl, id })); }
+    catch (e) { setTeste({ erro: e.message }); avisar('erro', e.message); }
+  };
+
+  const descobrir = async () => {
+    setDesc({ rodando: true });
     try {
-      const r = await api('imgteste', { base: cfg.base, tpl, id });
-      setTeste(r);
-    } catch (e) { setTeste({ erro: e.message }); avisar('erro', e.message); }
+      const r = await api('imgdescobrir', { base: cfg.base, id, pic: amostra[0] ? amostra[0].pic : '' });
+      setDesc(r);
+    } catch (e) { setDesc({ erro: e.message }); avisar('erro', e.message); }
   };
 
   return html`
     <div className="grade">
       <${Card} titulo="Resource online">
         <div className="edit">
-          <${Campo} label="URL base" dica="termina com / — ex.: https://cdn.exemplo.com/ddt/">
-            <input value=${cfg.base} placeholder="https://..."
-                   onChange=${e => setCfg({ ...cfg, base: e.target.value })}/>
+          <${Campo} label="URL base" dica="termina com /">
+            <input value=${cfg.base} onChange=${e => setCfg({ ...cfg, base: e.target.value })}/>
           <//>
-          <${Campo} label="Modo do caminho">
+          <${Campo} label="Como usar">
             <select value=${cfg.modo} onChange=${e => setCfg({ ...cfg, modo: e.target.value })}>
-              <option value="padrao">padrao — convencao do jogo (equip/.../icon_1.png)</option>
-              <option value="template">template — {TemplateID}.png</option>
-              <option value="pic">pic — Shop_Goods.Pic + .png</option>
+              <option value="espelho">espelho — copia para resource/ e serve local (recomendado)</option>
+              <option value="padrao">direto, convencao do jogo</option>
+              <option value="template">direto, {TemplateID}.png</option>
+              <option value="pic">direto, Shop_Goods.Pic + .png</option>
             </select>
           <//>
+          ${cfg.modo === 'espelho' ? html`
+            <${Campo} label="Caminho dentro da resource">
+              <select value=${cfg.caminho} onChange=${e => setCfg({ ...cfg, caminho: e.target.value })}>
+                <option value="padrao">padrao (equip/.../icon_1.png)</option>
+                <option value="template">template ({TemplateID}.png)</option>
+                <option value="pic">pic (Shop_Goods.Pic + .png)</option>
+              </select>
+            <//>` : null}
           <button className="primario" onClick=${salvar}>Salvar</button>
         </div>
         <p className="mini">
-          Vazio = usa so o SVG gerado. O SVG continua sendo o fallback automatico:
-          se a URL falhar, o icone volta a ser desenhado.
+          No modo <b>espelho</b>, a primeira vez que cada imagem aparece o servidor
+          busca na resource online, grava uma copia em <code>Web\painel\resource\</code>
+          e passa a servir do disco. Depois disso funciona offline.
         </p>
       <//>
 
-      <${Card} titulo="Testar a URL">
+      <${Card} titulo="Cache local" acoes=${cache ? html`<span className="mini">${cache.arquivos} arquivo(s)</span>` : null}>
+        ${cache ? html`
+          <${KV} linhas=${[
+            ['Arquivos espelhados', cache.arquivos],
+            ['Tamanho', (cache.bytes/1024).toFixed(1) + ' KB'],
+            ['Pasta', html`<code>${cache.pasta}</code>`],
+          ]}/>` : html`<p className="mini">carregando…</p>`}
+        <p className="mini">
+          O cache nunca é lido pela web de fora: <code>img.php</code> só aceita caminho
+          relativo validado por regex e bloqueia <code>..</code> e URL absoluta.
+        </p>
+      <//>
+
+      <${Card} titulo="Descobrir o caminho da resource">
+        <div className="edit">
+          <${Campo} label="TemplateID de teste">
+            <input value=${id} onChange=${e => setId(e.target.value)}/>
+          <//>
+          <button onClick=${descobrir} disabled=${!cfg.base}>Descobrir</button>
+        </div>
+        ${desc ? (desc.rodando
+          ? html`<p className="mini">testando candidatos…</p>`
+          : desc.erro ? painel_aviso(desc.erro)
+          : desc.achados.length ? html`<div className="aviso bom">
+              <b>${desc.achados.length} caminho(s) responderam:</b>
+              <ul>${desc.achados.map(x => html`<li className="mono" key=${x}>${x}</li>`)}</ul>
+              Use o que casar com a sua resource.
+            </div>`
+          : html`<div className="aviso erro">
+              Nenhum dos ${desc.testados} candidatos devolveu imagem.
+              <br /><small>Se voce tem uma URL que funciona no navegador, copie aqui e
+              eu ajusto o componente.</small></div>`) : null}
+      <//>
+
+      <${Card} titulo="Testar uma URL">
         <div className="edit">
           <${Campo} label="Modelo de caminho">
             <input value=${tpl} onChange=${e => setTpl(e.target.value)}/>
-          <//>
-          <${Campo} label="TemplateID de teste">
-            <input value=${id} onChange=${e => setId(e.target.value)}/>
           <//>
           <button onClick=${testar}>Testar</button>
         </div>
@@ -756,14 +807,13 @@ function ViewImagens({ avisar }) {
           : teste.erro ? painel_aviso(teste.erro)
           : html`<div className=${'aviso ' + (teste.achou ? 'bom' : 'erro')}>
               <div className="mono">${teste.url}</div>
-              ${teste.achou
-                ? html`OK — ${teste.contentType}, ${teste.bytes} bytes`
-                : html`falhou — ${teste.motivo}`}
+              ${teste.achou ? html`OK — ${teste.contentType}, ${teste.bytes} bytes`
+                           : html`falhou — ${teste.motivo}`}
             </div>`) : null}
       <//>
     </div>
 
-    <${Card} titulo="Previa">
+    <${Card} titulo="Previa (primeira carga espelha para resource\\)">
       <div className="itens grade-itens">
         ${amostra.map(i => html`<${ItemCell} key=${i.template} it=${i}/>`)}
       </div>
@@ -776,9 +826,7 @@ function ViewImagens({ avisar }) {
           <tr key=${c}><td>${c} — ${CAT_NOME[c] || ''}</td><td className="mono">${p}</td></tr>`)}
         </tbody>
       </table>
-      <p className="mini">
-        Mesma convencao de <code>Web\function.php::loadimage()</code> (hoje morta no portal).
-      </p>
+      <p className="mini">Mesma convencao de <code>Web\function.php::loadimage()</code>.</p>
     <//>`;
 }
 

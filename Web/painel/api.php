@@ -217,6 +217,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         responder(['ok' => true, 'base' => $base, 'testados' => $testados, 'achados' => $achados]);
     }
 
+    /* Deriva o padrao de caminho a partir de uma URL que o usuario confirma
+   que funciona. Troca o TemplateID de exemplo por {id}. */
+    if ($a === 'imgderivar') {
+        $url = trim((string)($_GET['url'] ?? ''));
+        $id  = (string)($_GET['id'] ?? '71843');
+        if ($url === '' || !preg_match('~^https?://~i', $url)) falha('informe uma URL http(s) completa.', 400);
+        if (strpos($url, $id) === false) {
+            falha("a URL precisa conter o TemplateID de teste ($id) para eu deduzir o padrão.", 400);
+        }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>15,
+            CURLOPT_FOLLOWLOCATION=>false, CURLOPT_USERAGENT=>'Mozilla/5.0 painel-ddt',
+            CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS|CURLPROTO_HTTP]);
+        curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $tam  = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
+        curl_close($ch);
+        if ($code !== 200 || stripos($ct, 'image/') !== 0) {
+            responder(['ok' => true, 'achou' => false, 'status' => $code,
+                       'contentType' => $ct, 'motivo' => "HTTP $code, $ct"]);
+        }
+        // separa base ( ate o primeiro TemplateID ) do template
+        $pos = strpos($url, $id);
+        $base = substr($url, 0, $pos);
+        $tpl  = substr($url, $pos);
+        $cfg  = img_config_gravar(['base' => $base, 'modo' => 'espelho',
+                                   'caminho' => 'custom', 'template_custom' => $tpl]);
+        responder(['ok' => true, 'achou' => true, 'base' => $base, 'template' => $tpl,
+                   'cfg' => $cfg, 'bytes' => $tam, 'contentType' => $ct,
+                   'exemplo' => str_replace('{id}', $id, $tpl)]);
+    }
+
     if ($a === 'imgconfig') {
         responder(['ok' => true, 'cfg' => img_config_ler(), 'modelos' => img_caminhos()]);
     }

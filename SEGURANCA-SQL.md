@@ -7,7 +7,7 @@ Data: 2026-10-16
 | Problema | Antes | Depois |
 |---|---|---|
 | Porta 1433 (SQL Server) escutando | `0.0.0.0` — alcançável da rede | regra de firewall bloqueia inbound TCP 1433 |
-| Login usado pelo PHP | `sa` / `123456` (sysadmin) | `ddt_web`, sem nenhum papel de servidor |
+| Login usado pelo PHP | `sa` / <senha forte, rotacionada 2026-10-16> (sysadmin) | `ddt_web`, sem nenhum papel de servidor |
 | Credencial no banco de código | `Web\global.php` (dentro do docroot) | `C:\DDTank4.1-main\secrets\db.php` (fora do docroot) |
 | Leitura de `master..syslogins` | liberada | negada para `ddt_web` |
 
@@ -59,7 +59,7 @@ Remove-NetFirewallRule -DisplayName 'DDT - BLOQUEAR SQL Server 1433 (somente loc
 
 ## Ainda usa `sa` (não alterado — exige reiniciar serviços)
 
-Estes pontos continuam com `User ID=sa;Password=123456` em texto plano:
+Estes pontos continuam com `User ID=sa;Password=<rotacionada>` em texto plano:
 
 - `Request\Web.config` (linhas 16-17) e `Request\Tank.Request\Web.config` (15-16)
 - `Web\web.config` (linhas 17-19, 22)

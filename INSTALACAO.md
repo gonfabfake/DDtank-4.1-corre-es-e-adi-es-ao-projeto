@@ -57,7 +57,7 @@ liga para a porta 9202 durante a inicialização e aborta se ninguém responder.
 | Item | Versão / detalhe |
 |---|---|
 | Visual Studio Build Tools 2022 | MSBuild 17.14 + .NET Framework 4.8 targeting pack |
-| SQL Server 2022 Express | instância padrão `MSSQL`, porta **1433**, mixed mode, `sa`/`123456` |
+| SQL Server 2022 Express | instância padrão `MSSQL`, porta **1433**, mixed mode, `sa`/`<senha-local>` |
 | 7-Zip 26.04 | extração do pacote de release |
 | PHP 8.1.34 (ZTS x64) | + `sqlsrv`/`pdo_sqlsrv` (msphpsql 5.12.0) |
 | IIS | WebServerRole, ASPNET45, NetFxExtensibility45, CGI/FastCGI |
@@ -130,7 +130,7 @@ Copiei **só os dados** — `.exe`/`.dll`/`.config` do release foram ignorados.
   `BallMgr Init: True`.
 * `Db\Query\Reset all Server.sql` é destrutivo (apaga jogadores e webaccounts e **derruba** a tabela
   `Sys_VIP_Info2`). Não foi executado.
-* **Segurança**: SQL em mixed mode com `sa`/`123456`, tudo em `127.0.0.1`. Adequado para uso local;
+* **Segurança**: SQL em mixed mode com `sa`/`<senha-local>`, tudo em `127.0.0.1`. Adequado para uso local;
   **não** exponha em rede.
 
 ---

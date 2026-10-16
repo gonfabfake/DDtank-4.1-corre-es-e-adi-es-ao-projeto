@@ -197,7 +197,7 @@ painel_cabecalho('Conta');
     <?php endforeach; ?>
   </table>
 
-<?php /* ========================== MENSAGENS ========================== */
+<?php /* ========================== MENSAGENS ========================== */ ?>
 <?php elseif ($abaAtual === 'mensagens'):
     $msgs = db_query(
         "SELECT TOP 300 m.ID, m.SenderID, m.Sender, m.ReceiverID, m.Receiver,
@@ -238,7 +238,7 @@ painel_cabecalho('Conta');
   </table>
   <?php endif; ?>
 
-<?php /* ============================ ACOES ============================ */
+<?php /* ============================ ACOES ============================ */ ?>
 <?php elseif ($abaAtual === 'acoes'):
     $logs = db_query(
         "SELECT TOP 300 l.ID, l.Type, l.Content, l.TimeCreate
@@ -259,7 +259,7 @@ painel_cabecalho('Conta');
     <?php endforeach; ?>
   </table>
 
-<?php /* ============================= PETS ============================ */
+<?php /* ============================= PETS ============================ */ ?>
 <?php elseif ($abaAtual === 'pets'):
     $pets = db_query(
         "SELECT * FROM Db_Tank41.dbo.Sys_Users_Pet WHERE UserID = ? AND IsExit = 0 ORDER BY Place", [$uid]);
@@ -289,7 +289,7 @@ painel_cabecalho('Conta');
   </table>
   <?php endif; ?>
 
-<?php /* =========================== PARTIDAS ========================== */
+<?php /* =========================== PARTIDAS ========================== */ ?>
 <?php elseif ($abaAtual === 'partidas'):
     $fr = db_query(
         "SELECT TOP 100 * FROM Db_Tank41.dbo.Fight_Record

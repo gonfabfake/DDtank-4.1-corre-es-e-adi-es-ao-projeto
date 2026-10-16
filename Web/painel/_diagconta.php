@@ -10,11 +10,24 @@ register_shutdown_function(function () {
         echo "\n=== FATAL ===\n{$e['message']}\nem " . basename($e['file']) . ":{$e['line']}\n";
     }
 });
-$_GET['q']  = 'usaimbot';
-$_GET['t']  = 'resumo';
+
+// Sessao de diagnostico: entra sem senha.
+session_name('DDTPANEL');
+@session_start();
+$_SESSION['painel_admin'] = ['UserID' => 25, 'UserName' => 'usaimbot', 'Papel' => 'admin'];
+
+$aba = $_GET['t'] ?? 'resumo';
+$_GET['q'] = $_GET['q'] ?? 'usaimbot';
 $_SERVER['REQUEST_METHOD'] = 'GET';
+
 ob_start();
-require __DIR__ . '/conta.php';
+try {
+    require __DIR__ . '/conta.php';
+} catch (Throwable $e) {
+    ob_end_clean();
+    echo "EXCEPTION: " . get_class($e) . ': ' . $e->getMessage() . "\n";
+    echo $e->getTraceAsString() . "\n";
+    exit;
+}
 $out = ob_get_clean();
-echo "\n--- ok, " . strlen($out) . " bytes ---\n";
-echo substr(preg_replace('/\s+/', ' ', strip_tags($out)), 0, 400) . "\n";
+echo "\n--- ok, " . strlen($out) . " bytes (aba=$aba) ---\n";

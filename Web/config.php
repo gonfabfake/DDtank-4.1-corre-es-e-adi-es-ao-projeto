@@ -1,6 +1,6 @@
 <?php
 // Host-dynamic view of config.xml: the same XML works on the PC (127.0.0.1)
-// and on phones accessing the PC over the LAN (e.g. http://192.168.3.58/).
+// and on phones accessing the PC over the LAN (e.g. http://<ip-do-pc>/).
 $host = isset($_SERVER['HTTP_HOST']) ? strtolower($_SERVER['HTTP_HOST']) : '127.0.0.1';
 $hostname = $host;
 if (preg_match('~^([a-z0-9.\-]+)(:\d+)?$~', $host, $hm)) {

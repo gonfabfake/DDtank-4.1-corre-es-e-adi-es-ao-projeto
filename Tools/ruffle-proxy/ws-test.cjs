@@ -1,10 +1,20 @@
 'use strict';
 const WebSocket = require('ws');
+const os = require('node:os');
+function lanIp() {
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const a of addrs || []) {
+      if (a.family === 'IPv4' && !a.internal) return a.address;
+    }
+  }
+  return '127.0.0.1';
+}
+const LAN = process.env.DDTANK_BASE ? new URL(process.env.DDTANK_BASE).hostname : lanIp();
 const cases = [
-  { url: 'ws://192.168.3.58:8765/game', origin: 'http://192.168.3.58' },
+  { url: `ws://${LAN}:8765/game`, origin: `http://${LAN}` },
   { url: 'ws://127.0.0.1:8765/game', origin: 'http://127.0.0.1' },
-  { url: 'ws://192.168.3.58:8765/game', origin: 'http://evil.example' },
-  { url: 'ws://192.168.3.58:8765/other', origin: 'http://192.168.3.58' },
+  { url: `ws://${LAN}:8765/game`, origin: 'http://evil.example' },
+  { url: `ws://${LAN}:8765/other`, origin: `http://${LAN}` },
 ];
 (async () => {
   for (const t of cases) {

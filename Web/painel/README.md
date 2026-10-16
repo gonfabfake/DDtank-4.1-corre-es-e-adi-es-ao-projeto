@@ -1,8 +1,79 @@
 # Painel de administracao DDTank 4.1
 
-Painel web em PHP para administrar contas do seu servidor local.
+Painel web em **React** (sem build step) para administrar contas do seu servidor local.
 
 **URL:** http://127.0.0.1/painel/
+
+---
+
+## Arquitetura
+
+```
+navegador  ──app.php──>  casca + window.BOOT (sessao, csrf, limites)
+     │
+     ├──GET  api.php?a=...        leitura
+     └──POST api.php?a=acao       escrita (csrf + papel)
+                │
+                └──_lib.php  IP, sessao, CSRF, prepared statements, auth
+                   _itens.php  regra de slot e SP_Users_Items_Add
+```
+
+O PHP cuida de **sessão, permissão, CSRF e dados**; o React cuida de **toda a
+interface**. O React 18 e o htm estão **vendorizados localmente** em
+`assets/vendor/` — nada é baixado de CDN em tempo de execucao, entao o painel
+funciona offline.
+
+`htm` permite escrever template literals Tagged em vez de JSX, o que dispensa
+compilacao. Componente e `html\`<div>...</div>\``, fechamento `<\//>`.
+
+### Paginas
+
+| Arquivo | Papel |
+|---|---|
+| `app.php` | casca que monta o React e injeta `window.BOOT` |
+| `index.php` | redireciona para `app.php` |
+| `api.php` | API JSON (GET leitura, POST escrita) |
+| `_lib.php` | nucleo: config, allowlist de IP, sessao, CSRF, `db_query` preparado, auth, dominio do jogo |
+| `_itens.php` | regra de bolsa/slot + `conceder_item` |
+| `assets/app.js` | a aplicacao React |
+| `assets/app.css` | layout |
+| `assets/vendor/` | react, react-dom, htm |
+
+As paginas antigas server-rendered (`conta.php`, `itens.php`, `auditoria.php`,
+`senha.php`) continuam funcionando e sao uteis como fallback/cURL.
+
+### Endpoints
+
+```
+GET  api.php?a=bootstrap            limites da UI
+GET  api.php?a=contas&q=            lista
+GET  api.php?a=conta&q=             ficha completa (itens, mensagens, acoes, pets, partidas)
+GET  api.php?a=catalogo&q=&cat=     catalogo
+GET  api.php?a=auditoria            log + tentativas
+POST api.php?a=acao                 nivel | cupons | moedas | admin | chat
+                                    conceder | remover
+```
+
+---
+
+## Imagens dos itens
+
+O jogo **nao expoe as sprites como arquivo**: `Shop_Goods.Pic` esta preenchido
+em 11.714 dos 11.715 itens, mas guarda a **chave do recurso dentro do SWF**
+(`20prize`, `Bindingvoucher`, `maya`...). As imagens reais vivem no
+`ResourceCache`, com nome SHA-1 e sem extensao — impossivel mapear por
+TemplateID sem extrair o SWF.
+
+Entao os icones sao **desenhados em SVG** a partir de dados reais
+(`CategoryID` + `Quality`), com uma silhueta por categoria e cor/borda por
+qualidade. Funciona para os 11.715 itens, sem nenhum asset externo. A chave
+`Pic` aparece no tooltip do item.
+
+As 36 imagens que existem de fato (`Web\Assets\images\img\*`, 6 por pasta) sao
+decorativas do template do portal e nao mapeiam para itens.
+
+Qualidade usa a mesma convencao do proprio jogo (`Web\function.php`):
+1 Thô · 2 Thường · 3 Bom · 4 Exelente · 5 Perfeita · 6 Ouro.
 
 ---
 
@@ -20,99 +91,87 @@ O token e de **uso unico** e se invalida depois. Para gerar outro:
 .\Tools\ContaBoost\gera-token-painel.ps1 -Apagar   # cancela
 ```
 
-A conta e a **mesma do portal**: a senha definida vale em
-`http://127.0.0.1/` e no painel. A aba **Senha** troca as duas de uma vez.
+A conta e a **mesma do portal**: a senha definida vale em `http://127.0.0.1/` e
+no painel. A aba **Senha** troca as duas de uma vez.
 
 ---
 
 ## O que da para fazer
 
-### Aba **Conta** (`conta.php`)
-
-Digite o nome do usuario (ou apelido, ou UserID) e aparecem 6 abas:
+### Ficha da conta
+Digite nome, apelido ou UserID. Abre a ficha com 6 abas:
 
 | Aba | Origem |
 |---|---|
-| **Resumo** | `Sys_Users_Detail` (nivel, GP, moedas, combate, acesso), `Sys_VIP_Info`, `Consortia`, `Sys_User_Rank`, `Sys_User_Match_Info`, `Sys_Users_Fight`, contagem de `AchievementData`, dados do portal |
-| **Itens** | `Sys_Users_Goods` x `Shop_Goods`: slot, atributos, +forja |
-| **Mensagens** | `User_Messages` — as 300 mais recentes enviadas/recebidas, com conteudo, anexos, Gold e Cupons |
-| **Acoes** | `Sys_Users_Log` — logins, abertura de baus, etc. |
+| **Resumo** | `Sys_Users_Detail`, `Sys_VIP_Info`, `Consortia`, `Sys_User_Rank`, `Sys_User_Match_Info`, `Sys_Users_Fight`, `AchievementData`, portal |
+| **Itens** | `Sys_Users_Goods` x `Shop_Goods` — icone SVG, slot, atributos, +forja |
+| **Mensagens** | `User_Messages` — 300 mais recentes, com conteudo, anexos, Gold e Cupons |
+| **Acoes** | `Sys_Users_Log` |
 | **Pets** | `Sys_Users_Pet` |
 | **Partidas** | `Fight_Record` e `Db_Count.Log_Fight` |
 
-### Aba **Contas** (`index.php`)
-Lista com filtro, e edita: **nivel**, **cupons (Money)**, Gold/Offer/Medal,
-acesso ao painel e **comandos de chat no jogo**.
+### Contas
+Lista com filtro e contagem de itens por conta. Clique em **ficha** para abrir.
 
-### Aba **Itens** (`itens.php`)
-Busca no catalogo (11.715 itens) por nome, TemplateID ou categoria.
-Concede item (com logica de slot, move o antigo para a mochila, nunca
-duplica) e remove item do inventario.
+### Itens
+Busca com debounce nos 11.715 itens. Concede item (move o anterior para a
+mochila, nunca duplica) e remove do inventario.
 
-### Aba **Auditoria** (`auditoria.php`)
+### Auditoria
 Tudo que foi feito, por quem, quando e de qual IP + tentativas de login.
 
 ---
 
 ## Regras do jogo respeitadas
 
-- **Nivel** e derivado de GP via `Db_Tank.dbo.LevelInfo`. O painel le o GP
-  da faixa oficial; nunca digita GP na mao.
-- **Cupons** = coluna `Money` (e `INT`: teto 2.147.483.647).
-- **Itens** entram por `SP_Users_Items_Add`, a mesma procedure que o
-  servidor usa em `PlayerBussiness.AddGoods`. `ItemID` e IDENTITY,
-  `ValidDate = 0` (nunca expira), `Hole1..6 = -1` (fechados).
+- **Nivel** e derivado de GP via `Db_Tank.dbo.LevelInfo`. O painel le o GP da
+  faixa oficial; nunca digita GP na mao.
+- **Cupons** = coluna `Money` (`INT`: teto 2.147.483.647).
+- **Itens** entram por `SP_Users_Items_Add`, a mesma procedure de
+  `PlayerBussiness.AddGoods`. `ItemID` e IDENTITY, `ValidDate = 0`,
+  `Hole1..6 = -1`.
 - **Slot** de equipamento e `CategoryID - 1`: 0 chapeu, 2 cabelo, 4 roupa,
-  5 olhos, **6 arma**, 7 pulseira, 9 anel, 11 terno, 12 colar.
-  O painel **rejeita** item em slot incompativel.
+  5 olhos, **6 arma**, 7 pulseira, 9 anel, 11 terno, 12 colar. O painel
+  **rejeita** item em slot incompativel.
 - **Bolsa 0**: equipado 0..30, mochila 31..79. **Bolsa 1**: 0..48.
 
 > **A conta precisa estar OFFLINE.** `GamePlayer.SaveIntoDatabase()` chama
 > `SP_Users_Update`, que sobrescreve `Grade`/`GP`/`Money` com os valores em
-> memoria. Com o jogador online, a mudanca e perdida no proximo save.
+> memoria. Online, a mudanca e perdida.
 
 ---
 
 ## Sobre replay de partida
 
-**Este servidor nao grava replay, e o painel nao tem como mostrar o que
-nao existe.** Nao e falha do painel: o codigo que registraria as partidas
-esta desconectado no proprio servidor C#.
+**Este servidor nao grava replay, e o painel nao tem como mostrar o que nao
+existe.** Nao e falha do painel: o codigo que registraria as partidas esta
+desconectado no proprio servidor C#.
 
 - `m_saveRecordTimer` e declarado mas nunca instanciado
-  (`GameServer.cs:49, 205-206`) — `LogMgr.Save()` nunca roda;
+  (`GameServer.cs:49, 205-206`);
 - `LogFightAdd` (`Statics/LogMgr.cs:60`) **nao tem nenhum chamador**;
-- o evento `GameOverLog` (`Game.Logic/BaseGame.cs:84`) nunca e assinado,
-  entao o `return` de `BaseGame.cs:1513` aborta sempre;
+- o evento `GameOverLog` (`Game.Logic/BaseGame.cs:84`) nunca e assinado, entao
+  o `return` de `BaseGame.cs:1513` aborta sempre;
 - `LogMoneyAdd` — a sobrecarga realmente chamada — tem um
-  `lock (m_LogMoney) ;` **vazio** em `LogMgr.cs:213-214`;
+  `lock (m_LogMoney) ;` **vazio** (`LogMgr.cs:213-214`);
 - `CountBussiness.SetConfig()` nunca e chamado, logo `CountRecord` fica
-  `false` e os 4 metodos de `Db_Count.Count_*` ficam inertes.
+  `false`.
 
-Resultado: `Fight_Record` = 0 linhas, `Db_Count.Log_Fight` = 0,
-`Log_Money` = 0, `Log_Item` = 0.
+Resultado: `Fight_Record` = 0 linhas, `Log_Fight` = 0, `Log_Money` = 0.
 
 E mesmo ligado, `Log_Fight.Detail` guardaria so um texto de atributos dos
-jogadores em partidas de **boss** (`PVEGame.cs:1048-1071`) — nao a sequencia
-de tiros. **O projeto nao tem gravacao de acoes em lugar nenhum**, entao
-"replay" no sentido de ver a partida de novo nao e possivel aqui.
+jogadores em partida de **boss** (`PVEGame.cs:1048-1071`) — nao a sequencia de
+tiros. **O projeto nao tem gravacao de acoes.**
 
-O que a aba **Partidas** mostra hoje: os registros de `Fight_Record` e
-`Db_Count.Log_Fight` (quando existirem) + esse aviso.
-
-### Ligar o registro de partidas (para o futuro)
-
-Nao e config, e patch de codigo. Sao 5 pontos:
+### Ligar o registro (patch de codigo, requer recompilar)
 
 | # | Arquivo | O que fazer |
 |---|---|---|
-| 1 | `Game.Server\Server\GameServer.cs:205` | instanciar `m_saveRecordTimer = new Timer(new TimerCallback(this.SaveRecordProc), null, num3, num3)` antes do `.Change()` |
+| 1 | `Game.Server\Server\GameServer.cs:205` | instanciar `m_saveRecordTimer` antes do `.Change()` |
 | 2 | `GameServer.cs` / `BaseGame.cs` | assinar `game.GameOverLog += LogMgr.LogFightAdd` |
-| 3 | `Game.Server\Server\Statics\LogMgr.cs:213` | `lock (...) ;` -> `lock (...) LogMgr.m_LogMoney.Rows.Add(objArray);` |
-| 4 | `CountBussiness.cs` | chamar `SetConfig(connStr, AppID, SubId, ServerID, Configuration.CountRecord)` no startup |
-| 5 | `ItemRecordBussiness.cs:151-165` | alinhar os 15 `ColumnMappings` as 16 colunas reais (`LogMgr.cs:373-389`) — hoje grava `SpareMoney` em `Gold`, `Medal` em `Offer`, etc. |
-
-Requer recompilar os servicos e reiniciar. Fale se quiser que eu faca.
+| 3 | `Game.Server\Server\Statics\LogMgr.cs:213` | `lock (...) ;` -> `lock (...) m_LogMoney.Rows.Add(objArray);` |
+| 4 | `CountBussiness.cs` | chamar `SetConfig(...)` no startup |
+| 5 | `ItemRecordBussiness.cs:151-165` | alinhar os 15 `ColumnMappings` as 16 colunas reais |
 
 ---
 
@@ -122,50 +181,42 @@ Requer recompilar os servicos e reiniciar. Fale se quiser que eu faca.
 |---|---|
 | So `127.0.0.1` / `::1` | `PAINEL_IP_LIBERADOS` em `_lib.php` |
 | Login pela conta real do jogo | `entrar.php` (MD5, igual ao portal) |
-| Autorizacao por `Admin_Usuarios` | conta precisa estar na tabela |
-| CSRF em todo POST | `csrf_validar()` |
+| Autorizacao por `Admin_Usuarios` | papel `admin` ou `leitura` |
+| CSRF em todo POST | `csrf_validar()`; o token vai no `window.BOOT` |
 | Limite de forca bruta | 5 falhas / 15 min por conta |
-| Sessao | cookie `HttpOnly`, `SameSite=Strict`, regenerada no login |
-| SQL | **sempre** prepared statement (o codigo legado concatena e e injectionavel — nao copie) |
-| Saida | sempre `htmlspecialchars` via `e()` |
-| Cabecalhos | `nosniff`, `DENY` frame, `no-store` (`painel\web.config`) |
-| Todas as acoes | gravadas em `Admin_Auditoria` com IP |
+| Sessao | `HttpOnly`, `SameSite=Strict`, regenerada no login |
+| SQL | **sempre** prepared statement |
+| Saida | React escapa por padrao (o `dangerouslySetInnerHTML` nao e usado) |
+| Cabecalhos | `nosniff`, `DENY` frame, `no-store` |
+| Auditoria | toda acao gravada com IP |
 
-Liberar a rede: descomente a linha do IP em `_lib.php`. **Nao recomendo** —
-o painel da poder total sobre as contas.
+Liberar a rede: descomente o IP em `_lib.php`. **Nao recomendo.**
 
-> **Armadilha ja vista aqui:** `sqlsrv` devolve colunas `datetime` como
-> objetos `DateTime`, nao string. `e()` trata isso. E controle de transacao
-> tem que usar `sqlsrv_begin_transaction/commit/rollback` — `"BEGIN TRAN"`
-> como texto **nao funciona** (MARS).
+> **Armadilhas ja vistas aqui:**
+> - `sqlsrv` devolve `datetime` como objeto `DateTime` — a API converte com
+>   `data_txt()` antes do `json_encode`.
+> - Controle de transacao tem que usar `sqlsrv_begin_transaction/commit/rollback`;
+>   `"BEGIN TRAN"` como texto **nao funciona** (MARS).
+> - Ao escrever PHP pelo PowerShell, grave **sem BOM**
+>   (`UTF8Encoding($false)`) — senao o FastCGI responde 500.0 sem nenhuma pista.
 
 ---
 
-## Arquivos
+## Testes
 
+```powershell
+.\Tools\ContaBoost\teste-api.ps1     # 35 verificacoes: SPA, vendor, API, CSRF, validacoes
+.\Tools\ContaBoost\teste-conta.ps1   # 27 verificacoes da ficha server-rendered
+.\Tools\ContaBoost\teste-painel.ps1  # fluxo completo: primeiro acesso -> login -> acoes
 ```
-Web\painel\
-  _lib.php            nucleo: config, IP, sessao, CSRF, SQL, auth, dominio
-  entrar.php  sair.php  senha.php
-  primeiro_acesso.php  token de uso unico
-  index.php           lista + edicao (nivel, cupons, moedas, acesso)
-  conta.php           ficha completa com 6 abas
-  itens.php           catalogo + conceder/remover
-  auditoria.php       historico
-  assets\painel.css
-  web.config
 
-Tools\ContaBoost\
-  gera-token-painel.ps1   gera/cancela o token
-  teste-conta.ps1         27 verificacoes da ficha
-  teste-painel.ps1        10 verificacoes do fluxo completo
-```
+---
 
 ## Banco
 
 Criado em `Db_Tank41`:
 
-- `Admin_Usuarios` — quem acessa o painel (`UserID`, `Papel` admin/leitura)
+- `Admin_Usuarios` — quem acessa o painel
 - `Admin_Auditoria` — log de acoes
 - `Admin_Tentativas` — tentativas de login
 

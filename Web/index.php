@@ -114,6 +114,7 @@ z.value = v;
 <title><?php echo $titulo; ?></title>
 <meta name="Description" content="<?php echo $description; ?>"/>
 <meta name="Keywords" content="<?php echo $KeyWords; ?>" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="shortcut icon" href="./Assets/images/favicon.ico"/>
 <link rel="bookmark" href="./Assets/images/favicon.ico"/> 
 <link rel="stylesheet" href="./Assets/css/ddt-index.css">
@@ -129,6 +130,33 @@ z.value = v;
 <script type="text/javascript" src="./Assets/js/jquery-ui-1.8.21.custom.js"></script>
 <script type="text/javascript" src="./Assets/js/jquery.ui.button.js"></script>
 <script type="text/javascript" src="./Assets/js/password_ddt.js"></script>
+<style>
+/* Ajustes mobile: portal enxuto para login no celular. Nao afeta o desktop (>820px). */
+@media (max-width: 820px){
+  body{background:#1c2a38}
+  .hearder{display:none}
+  .wrap-box{background-image:none}
+  .w980{width:auto;max-width:620px;padding:0 12px}
+  .index-left{float:none;width:auto}
+  .index-rgt{display:none}
+  .login{margin-top:14px;height:auto;background:#fff;background-image:none;border-radius:14px;box-shadow:0 6px 22px rgba(0,0,0,.28);padding-bottom:16px}
+  .play-game{display:none}
+  .ranking{display:none}
+  .unlogin-box{padding-top:18px;padding-left:12px;padding-right:12px}
+  .unlogin-box .input-box{display:block;width:auto;margin-left:0}
+  .unlogin-box .input-box input{float:none;width:100%;height:46px;font-size:16px;line-height:44px;margin-top:10px}
+  .unlogin-box .loginbtn{float:none;display:block;width:100%;height:54px;margin:14px 0 0;background-image:none;background-color:#ffa419;border-radius:10px;border:0}
+  .unlogin-box .loginbtn::after{content:"ENTRAR";font:bold 20px/54px Arial;color:#4a2b00}
+  .forget{padding:12px 0 0}
+  .forget a{display:inline-block;padding:6px 4px}
+  .login-box{padding:18px 12px 0}
+  .login-box .input-box{width:auto;display:block}
+  .login-box h2{padding:10px 0 2px}
+  .lastLogin{width:auto;text-align:center;padding:15px 12px;font-size:18px;font-weight:bold;line-height:1.2;background-image:none;background-color:#ffa419;color:#4a2b00;border-radius:10px}
+  .modal-dialog{width:auto !important;margin:12px}
+  .footer-img{height:120px;background-size:auto 120px}
+}
+</style>
 </head>
 <body>
 

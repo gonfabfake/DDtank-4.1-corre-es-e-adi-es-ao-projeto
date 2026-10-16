@@ -3,20 +3,29 @@
 <head>
 <meta charset="utf-8">
 <title>probe</title>
-<style>html,body{margin:0;background:#111;color:#eee;font:12px monospace}#p{width:900px;height:520px}
+<style>html,body{margin:0;background:#111;color:#eee;font:12px monospace}#p{width:910px;height:530px}
 #out{position:fixed;right:0;top:0;width:360px;height:100%;overflow:auto;background:#000;margin:0;padding:6px}</style>
 </head>
 <body>
 <div id="p"></div>
 <pre id="out"></pre>
-<script src="/ruffle/ruffle.js"></script>
 <script>
+window.RufflePlayer = window.RufflePlayer || {};
+window.RufflePlayer.config = {
+  logLevel: 'trace',
+  letterbox: 'off',
+  allowScriptAccess: true,
+  autoplay: 'on'
+};
 window.__probe = [];
 window.logProbe = function(m){
   window.__probe.push(m);
   document.getElementById('out').textContent += m + '\n';
   console.log('PROBEJS ' + m);
 };
+</script>
+<script src="/ruffle/ruffle.js"></script>
+<script>
 (async function(){
   try {
     const ruffle = window.RufflePlayer.newest();
@@ -26,6 +35,7 @@ window.logProbe = function(m){
     document.getElementById('p').appendChild(player);
     logProbe('page: loading zz-probe.swf, ruffle version=' + (ruffle ? ruffle.version : '?'));
     await player.ruffle().load({ url: 'http://192.168.1.111/zz-probe.swf', allowScriptAccess: 'always' });
+    logProbe('page: load() resolved');
   } catch (e) {
     logProbe('page: LOAD FAIL ' + e);
   }

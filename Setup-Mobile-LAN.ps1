@@ -53,15 +53,11 @@ Info ("IIS: bindings atuais -> " + $allB)
 # --- 2) Firewall (somente sub-rede local) ----------------------------------
 foreach ($port in 80, 8765) {
   $name = "DDTank LAN TCP $port"
-  $rule = Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue
-  if ($rule) {
-    Set-NetFirewallRule -DisplayName $name -Enabled True -Profile Any -Action Allow | Out-Null
-    Set-NetFirewallAddressFilter -AssociatedNetFirewallRule $rule -RemoteAddress LocalSubnet | Out-Null
-    Info "Firewall: regra atualizada ($name)"
-  } else {
-    New-NetFirewallRule -DisplayName $name -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -RemoteAddress LocalSubnet -Profile Any | Out-Null
-    Info "Firewall: regra criada ($name)"
-  }
+  # Recria sempre: garante Enabled/Allow/Profile Any/LocalSubnet em qualquer
+  # versao do modulo NetSecurity (o setter do filtro de endereco varia).
+  Get-NetFirewallRule -DisplayName $name -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+  New-NetFirewallRule -DisplayName $name -Direction Inbound -Action Allow -Protocol TCP -LocalPort $port -RemoteAddress LocalSubnet -Profile Any | Out-Null
+  Info "Firewall: regra garantida ($name)"
 }
 $profiles = Get-NetConnectionProfile -ErrorAction SilentlyContinue | Select-Object InterfaceAlias, NetworkCategory
 foreach ($p in $profiles) { Info ("Perfil de rede: {0} = {1}" -f $p.InterfaceAlias, $p.NetworkCategory) }

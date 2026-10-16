@@ -68,8 +68,6 @@ BEGIN
     RAISERROR('Item do kit exige NeedLevel acima do grade alvo. Nada foi gravado.', 16, 1);
 END
 
-DECLARE @SegA varchar(60) = 'mochila livre';
-
 BEGIN TRAN;
 
 /* ================= 1) NIVEL ================= */
@@ -119,7 +117,7 @@ BEGIN
             UPDATE Db_Tank41.dbo.Sys_Users_Goods
             SET Place = @FreeSlot, RemoveDate = GETDATE(), RemoveType = 22
             WHERE ItemID = @OccupantItemID;
-            PRINT CONCAT('  [mochila] ', @SegA, ' -> ', @FreeSlot, ' (slot ', @Place, ' liberado)');
+            PRINT CONCAT('  [mochila] gear antigo -> slot ', @FreeSlot, ' (liberou o slot ', @Place, ')');
         END
         ELSE
         BEGIN

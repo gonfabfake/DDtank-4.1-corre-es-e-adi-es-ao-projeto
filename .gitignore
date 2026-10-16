@@ -352,3 +352,12 @@ MigrationBackup/
 .env.*
 !.env.example
 node_modules/
+
+# --- segredos locais (nunca versionar) ---
+secrets/
+Request/WebPrivate.config
+Request/Web.config.orig
+Request/Web.config.bak
+Web/web.config.orig
+Web/web.config.pre-fastcgi.bak
+Web/web.config.*.bak

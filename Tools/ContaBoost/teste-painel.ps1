@@ -17,7 +17,11 @@ function Get-Csrf($r) {
     throw 'CSRF nao encontrado'
 }
 
-$token = (Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw).Trim()
+$token = ([string](Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw)).Trim()
+if ($token -eq '') {
+    Write-Host "SEM TOKEN. Rode antes:  .\gera-token-painel.ps1" -ForegroundColor Yellow
+    exit 1
+}
 $alvo  = 'teste01'      # throwaway
 $senha = 'Pain3lT#' + (Get-Random -Minimum 1000 -Maximum 9999)
 
@@ -29,8 +33,8 @@ $body = @{ _csrf = (Get-Csrf $r); token = $token; usuario = $alvo
 $r = Invoke-WebRequest "$base/primeiro_acesso.php" -WebSession $s -UseBasicParsing -Method Post -Body $body
 Check 'primeiro acesso aceito' ($r.Content -match 'Senha de') ($r.Content -replace '<[^>]+>',' ' -replace '\s+',' ')
 
-$restam = (Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw).Trim()
-Check 'token foi consumido' ($restam -eq '') "ainda vale: '$restam'"
+$restam = [string](Get-Content 'C:\DDTank4.1-main\secrets\painel_token.txt' -Raw)
+Check 'token foi consumido' ($restam.Trim() -eq '') "ainda vale: '$restam'"
 
 Write-Host "`n=== 2. CSRF invalido deve ser rejeitado ===" -ForegroundColor Cyan
 try {

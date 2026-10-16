@@ -102,7 +102,10 @@ FETCH NEXT FROM kit_cur INTO @Seq, @BagType, @Place, @TemplateID, @ItemCount, @L
 WHILE @@FETCH_STATUS = 0
 BEGIN
     /* 3.1 Libera o slot de destino: manda o ocupante para a mochila.
-           Nada e destruido -- o gear antigo continua utilizavel.           */
+           Nada e destruido -- o gear antigo continua utilizavel.
+           IMPORTANTE: SELECT @var = ... NAO zera @var quando nao ha linhas,
+           entao e obrigatorio zerar explicitamente antes de cada busca.     */
+    SET @OccupantItemID = NULL;
     SELECT @OccupantItemID = ItemID
     FROM Db_Tank41.dbo.Sys_Users_Goods
     WHERE UserID = @UserID AND BagType = @BagType AND Place = @Place
@@ -110,6 +113,7 @@ BEGIN
 
     IF @OccupantItemID IS NOT NULL
     BEGIN
+        SET @FreeSlot = NULL;
         SELECT @FreeSlot = MIN(Place)
         FROM Db_Tank41.dbo.Sys_Users_Goods
         WHERE UserID = @UserID AND BagType = 0 AND IsExist = 1 AND Place >= 31 AND Place <= 79;

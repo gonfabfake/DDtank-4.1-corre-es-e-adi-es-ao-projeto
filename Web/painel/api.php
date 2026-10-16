@@ -36,6 +36,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                    'csrf' => csrf_token(), 'img' => $ic]);
     }
 
+    /* Testa uma URL de imagem literal, inclusive paths com nomes como guidname.
+       Nao deriva TemplateID e NAO grava configuracao. */
+    if ($a === 'imgurl') {
+        $url = trim((string)($_GET['url'] ?? ''));
+        if ($url === '' || strlen($url) > 2000) falha('URL de imagem invalida.', 400);
+        try {
+            $r = img_consulta_publica($url);
+        } catch (Throwable $e) {
+            falha('Nao foi possivel verificar a URL: ' . $e->getMessage(), 400);
+        }
+        responder(['ok' => true, 'url' => $url, 'achou' => $r['achou'],
+            'status' => $r['status'], 'contentType' => $r['contentType'],
+            'bytes' => $r['bytes'], 'motivo' => $r['achou'] ? '' :
+                ($r['erro'] ?: 'HTTP ' . $r['status'] . ', ' . $r['contentType'])]);
+    }
+
     /* Consulta somente URLs publicas, com limite de download e sem redirects. */
     if ($a === 'imgteste') {
         $base = trim((string)($_GET['base'] ?? ''));

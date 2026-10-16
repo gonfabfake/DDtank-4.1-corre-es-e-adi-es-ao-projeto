@@ -46,7 +46,8 @@ foreach ($v in @('react.production.min.js','react-dom.production.min.js','htm.js
 
 Write-Host "`n=== endpoints GET ===" -ForegroundColor Cyan
 foreach ($e in @('bootstrap','contas&q=','conta&q=usaimbot','conta&q=25','conta&q=naoexiste_zz',
-                 'catalogo&q=Bast','catalogo&q=','catalogo&q=71843','auditoria')) {
+                 'catalogo&q=Bast','catalogo&q=','catalogo&q=71843','auditoria',
+                 'imgconfig','imgteste&base=&tpl=arm/{id}/00.png&id=71843')) {
   $nome = ($e -split '&')[0]
   try {
     $r = Invoke-WebRequest "$base/api.php?a=$e" -WebSession $s2 -UseBasicParsing -TimeoutSec 30

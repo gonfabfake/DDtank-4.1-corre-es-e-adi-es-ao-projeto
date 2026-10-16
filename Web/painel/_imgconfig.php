@@ -64,7 +64,8 @@ function img_config_gravar(array $novo): array {
     if (isset($novo['base']))   $c['base'] = rtrim(trim((string)$novo['base']), '/') . (trim((string)$novo['base']) !== '' ? '/' : '');
     if (isset($novo['modo']) && in_array($novo['modo'], ['padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
     if (isset($novo['mostrar'])) $c['mostrar'] = (int)$novo['mostrar'] === 1;
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent IMG_CONFIG_FILE) | Out-Null;
+    $dir = dirname(IMG_CONFIG_FILE);
+    if (!is_dir($dir)) @mkdir($dir, 0777, true);
     file_put_contents(IMG_CONFIG_FILE, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
     return $c;
 }

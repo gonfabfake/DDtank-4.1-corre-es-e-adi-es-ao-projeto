@@ -387,7 +387,7 @@ function Permissoes({ c, avisar, recarregar }) {
     </div>`;
 }
 
-function AbaItens({ c, avisar }) {
+function AbaItens({ c, avisar, irItens }) {
   const d = c.detalhe;
   const equip = c.itens.filter(i => i.bag === 0 && i.slot <= 30);
   const resto = c.itens.filter(i => !(i.bag === 0 && i.slot <= 30));
@@ -426,7 +426,7 @@ function AbaItens({ c, avisar }) {
       <${Card} titulo="Conceder item">
         <div className="edit">
           <${Campo} label="TemplateID"
-                    dica=${html`<a href="itens.php" target="_blank" rel="noopener">buscar no catálogo →</a>`}>
+                    dica=${html`<a onClick=${irItens} style="cursor:pointer;text-decoration:none">buscar no catálogo →</a>`}>
             <input type="number" value=${tid} onChange=${e => setTid(e.target.value)} placeholder="ex.: 71843"/>
           <//>
           <${Campo} label="Bolsa">

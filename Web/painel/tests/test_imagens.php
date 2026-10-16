@@ -41,4 +41,18 @@ confere(img_resource_base('https://resbr51-myddt-ofc.ddtankswordgames.com/image/
     'sem duplicar o prefixo image/');
 confere(str_contains(img_caminhos()[34], 'unfrightprop/'),
     'categoria 34 segue convencao de loadimage');
+
+$inventario = img_candidatos_item(['TemplateID' => 71843, 'Pic' => 'guidname', 'CategoryID' => 11]);
+confere($inventario[0] === 'unfrightprop/guidname/icon.png',
+    'Pic textual aparece antes do TemplateID');
+confere($inventario[1] === 'unfrightprop/71843/icon.png',
+    'TemplateID usado somente como alternativa');
+$roupa = img_candidatos_item(['TemplateID' => 555, 'Pic' => 'cloth1', 'CategoryID' => 5]);
+confere($roupa === ['equip/m/cloth/cloth1/icon_1.png', 'equip/f/cloth/cloth1/icon_1.png',
+    'equip/m/cloth/555/icon_1.png', 'equip/f/cloth/555/icon_1.png'],
+    'equipamentos incluem variacoes masculina e feminina');
+confere(img_candidatos_item(['TemplateID' => 555, 'Pic' => '../abc', 'CategoryID' => 11])[0]
+    === 'unfrightprop/555/icon.png', 'ignorar chave Pic com navegacao de diretorio');
+confere(img_cache_jogo('../etc/passwd.png') === null,
+    'nao consultar cache por travessia de diretorio');
 echo "Testes locais do painel concluidos.\n";

@@ -68,12 +68,18 @@ try {
 $aliveIps = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object { $_.IPAddress })
 foreach ($b in @($site.Bindings | Where-Object { $_.BindingInformation -match '^([0-9.]+):80:$' })) {
   $bip = [regex]::Match($b.BindingInformation, '^([0-9.]+):80:$').Groups[1].Value
+  $binfo = $b.BindingInformation
   if ($bip -ne '127.0.0.1' -and ($aliveIps -notcontains $bip)) {
-    $site.Bindings.Remove($b) | Out-Null
-    $sm.CommitChanges()
+    # referencia fresca: apos CommitChanges() o objeto anterior fica readonly
+    $sm2 = New-Object Microsoft.Web.Administration.ServerManager
+    $site2 = $sm2.Sites[$siteName]
+    $b2 = $site2.Bindings | Where-Object { $_.BindingInformation -eq $binfo }
+    if ($b2) { $site2.Bindings.Remove($b2) | Out-Null; $sm2.CommitChanges() }
     Info ("IIS: binding de IP morto removido (" + $bip + ":80:)")
   }
 }
+$sm = New-Object Microsoft.Web.Administration.ServerManager
+$site = $sm.Sites[$siteName]
 $allB = ($site.Bindings | ForEach-Object { $_.BindingInformation }) -join ' | '
 Info ("IIS: bindings atuais -> " + $allB)
 

@@ -9,6 +9,7 @@
    ===================================================================== */
 require_once __DIR__ . '/_lib.php';
 require_once __DIR__ . '/_itens.php';
+require_once __DIR__ . '/_imgconfig.php';
 
 admin_exigir();
 header('Content-Type: application/json; charset=utf-8');
@@ -30,8 +31,39 @@ $a = (string)($_GET['a'] ?? $_POST['a'] ?? '');
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     if ($a === 'bootstrap') {
+        $ic = img_config_ler();
         responder(['ok' => true, 'maxGrade' => grade_maximo(), 'cupomMax' => CUPOM_MAX,
-                   'csrf' => csrf_token()]);
+                   'csrf' => csrf_token(), 'img' => $ic]);
+    }
+
+    /* Testa a resource online sem sair do servidor. */
+    if ($a === 'imgteste') {
+        $base = rtrim((string)($_GET['base'] ?? ''), '/') . '/';
+        $tpl  = (string)($_GET['tpl'] ?? 'arm/{id}/00.png');
+        $id   = (string)($_GET['id'] ?? '71843');
+        $u    = $base . str_replace('{id}', $id, $tpl);
+        $ok = false; $ct = ''; $tam = 0; $motivo = '';
+        if ($base === '') { $motivo = 'base vazia'; }
+        else {
+            $ch = curl_init($u);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_NOBODY => false,
+                CURLOPT_USERAGENT => 'Mozilla/5.0 painel-ddt',
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            $tam  = (int) curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
+            $erro = curl_error($ch);
+            curl_close($ch);
+            $ok = ($code === 200 && stripos($ct, 'image/') === 0);
+            $motivo = $ok ? '' : ($erro ?: "HTTP $code, content-type: " . ($ct ?: 'vazio'));
+        }
+        responder(['ok' => true, 'url' => $u, 'achou' => $ok, 'status' => $code ?? 0,
+                   'contentType' => $ct, 'bytes' => $tam, 'motivo' => $motivo]);
     }
 
     if ($a === 'contas') {
@@ -151,6 +183,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             db_query($sql, [$q, $like, $q, $catInt, $catInt]))]);
     }
 
+    if ($a === 'imgconfig') {
+        responder(['ok' => true, 'cfg' => img_config_ler(), 'modelos' => img_caminhos()]);
+    }
+
     if ($a === 'auditoria') {
         responder(['ok' => true, 'acoes' => db_query(
             "SELECT TOP 200 a.ID, a.Quando, a.AdminNome, a.Acao, a.AlvoUser,
@@ -259,6 +295,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
                          SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 1
                          WHERE ItemID = ? AND UserID = ?", [$itemID, $userID]);
                 $detalhe = "ItemID = $itemID";
+                break;
+
+            case 'imgconfig':
+                $cfg = img_config_gravar([
+                    'base'   => (string)($_POST['base'] ?? ''),
+                    'modo'   => (string)($_POST['modo'] ?? 'padrao'),
+                    'mostrar'=> (int)($_POST['mostrar'] ?? 1),
+                ]);
+                $detalhe = 'base=' . ($cfg['base'] ?: '(vazio)') . ' modo=' . $cfg['modo'];
                 break;
 
             default:

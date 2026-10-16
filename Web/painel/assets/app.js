@@ -157,6 +157,7 @@ function Campo({ label, children, dica }) {
 /* ------------------------------------------------------------------ */
 function App() {
   const [view, setView] = useState('conta');
+  const [alvo, setAlvo] = useState('');   // termo de busca da ficha (vinda de outras telas)
   const [msg, setMsg] = useState(null);
   const [tipoMsg, setTipoMsg] = useState('erro');
 
@@ -185,8 +186,8 @@ function App() {
       </header>
       <${Aviso} msg=${msg} tipo=${tipoMsg}/>
       <main>
-        ${view === 'conta'      && html`<${ViewConta} avisar=${avisar} irItens=${() => setView('itens')}/>`}
-        ${view === 'contas'     && html`<${ViewContas} avisar=${avisar} irConta=${() => setView('conta')}/>`}
+        ${view === 'conta'      && html`<${ViewConta} avisar=${avisar} irItens=${() => setView('itens')} alvo=${alvo} setAlvo=${setAlvo}/>`}
+        ${view === 'contas'     && html`<${ViewContas} avisar=${avisar} irConta=${nome => { setAlvo(nome); setView('conta'); }}/>`}
         ${view === 'itens'      && html`<${ViewItens} avisar=${avisar}/>`}
         ${view === 'auditoria'  && html`<${ViewAuditoria} avisar=${avisar}/>`}
       </main>
@@ -200,21 +201,27 @@ function App() {
 /* ------------------------------------------------------------------ */
 /* Ficha da conta                                                      */
 /* ------------------------------------------------------------------ */
-function ViewConta({ avisar, irItens }) {
-  const [q, setQ] = useState('');
+function ViewConta({ avisar, irItens, alvo, setAlvo }) {
+  const [q, setQ] = useState(alvo || '');
   const [c, setC] = useState(null);
   const [aba, setAba] = useState('resumo');
   const [carregando, setCarregando] = useState(false);
 
-  const buscar = useCallback(async () => {
-    if (!q.trim()) return;
+  const buscar = useCallback(async (termo) => {
+    const t = (termo != null ? termo : q).trim();
+    if (!t) return;
     setCarregando(true);
     try {
-      const d = await api('conta', { q: q.trim() });
+      const d = await api('conta', { q: t });
       setC(d.conta); setAba('resumo');
     } catch (e) { avisar('erro', e.message); setC(null); }
     setCarregando(false);
   }, [q, avisar]);
+
+  // Se outra tela mandou um nome (ex.: "ficha" na lista de contas), busca sozinho.
+  useEffect(() => {
+    if (alvo && alvo !== q) { setQ(alvo); buscar(alvo); }
+  }, [alvo]);
 
   const ABAS = [['resumo', 'Resumo'], ['itens', 'Itens'], ['mensagens', 'Mensagens'],
                 ['acoes', 'Ações'], ['pets', 'Pets'], ['partidas', 'Partidas']];
@@ -543,7 +550,7 @@ function AbaPartidas({ c }) {
 /* ------------------------------------------------------------------ */
 /* Lista de contas                                                     */
 /* ------------------------------------------------------------------ */
-function ViewContas({ avisar }) {
+function ViewContas({ avisar, irConta }) {
   const [q, setQ] = useState('');
   const [lista, setLista] = useState([]);
 
@@ -576,7 +583,7 @@ function ViewContas({ avisar }) {
             <td>${c.Ativo ? html`<span className="tag verde">${c.Papel}</span>` : html`<span className="tag cinza">—</span>`}</td>
             <td>${c.ChatAdmin ? html`<span className="tag verde">sim</span>` : html`<span className="tag cinza">—</span>`}</td>
             <td className="mini">${dt(c.LastDate)}</td>
-            <td><a href="#ficha" onClick=${e => { e.preventDefault(); window.__irConta && window.__irConta(c.NickName); }}>ficha</a></td>
+            <td><a href="#ficha" onClick=${e => { e.preventDefault(); irConta(c.NickName); }}>ficha</a></td>
           </tr>`)}
         </tbody>
       </table>

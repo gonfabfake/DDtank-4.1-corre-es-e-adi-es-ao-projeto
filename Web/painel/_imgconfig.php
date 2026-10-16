@@ -41,6 +41,7 @@ function img_config_padrao(): array {
         'base'    => 'https://resbr51-myddt-ofc.ddtankswordgames.com/',
         'modo'    => 'espelho',  // espelho | padrao | template | pic
         'caminho' => 'padrao',   // usado quando modo = espelho
+        'template_custom' => '', // padrao deduzido de uma URL real
         'mostrar' => true,
     ];
 }
@@ -64,7 +65,8 @@ function img_config_gravar(array $novo): array {
     $c = img_config_ler();
     if (isset($novo['base']))   $c['base'] = rtrim(trim((string)$novo['base']), '/') . (trim((string)$novo['base']) !== '' ? '/' : '');
     if (isset($novo['modo']) && in_array($novo['modo'], ['espelho','padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
-    if (isset($novo['caminho']) && in_array($novo['caminho'], ['padrao','template','pic'], true)) $c['caminho'] = $novo['caminho'];
+    if (isset($novo['caminho']) && in_array($novo['caminho'], ['padrao','template','pic','custom'], true)) $c['caminho'] = $novo['caminho'];
+    if (isset($novo['template_custom'])) $c['template_custom'] = (string)$novo['template_custom'];
     if (isset($novo['mostrar'])) $c['mostrar'] = (int)$novo['mostrar'] === 1;
     $dir = dirname(IMG_CONFIG_FILE);
     if (!is_dir($dir)) @mkdir($dir, 0777, true);

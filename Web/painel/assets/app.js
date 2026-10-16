@@ -133,6 +133,7 @@ function urlImagem(it) {
   if (cfg.modo === 'espelho') {
     if (cfg.caminho === 'template') rel = id + '.png';
     else if (cfg.caminho === 'pic') rel = (it.pic ? it.pic + '.png' : null);
+    else if (cfg.caminho === 'custom' && cfg.template_custom) rel = cfg.template_custom.replace('{id}', id);
     else { const t = PATHS[it.cat] || PATHS[19]; rel = t.replace('{id}', id); }
     if (!rel) return null;
     return 'img.php?p=' + encodeURIComponent(rel);
@@ -691,6 +692,8 @@ function ViewImagens({ avisar }) {
   const [tpl, setTpl] = useState('arm/{id}/00.png');
   const [id, setId] = useState('71843');
   const [desc, setDesc] = useState(null);
+  const [urlBoa, setUrlBoa] = useState('');
+  const [deriv, setDeriv] = useState(null);
   const [cache, setCache] = useState(null);
   const [amostra, setAmostra] = useState([]);
 
@@ -729,6 +732,15 @@ function ViewImagens({ avisar }) {
     } catch (e) { setDesc({ erro: e.message }); avisar('erro', e.message); }
   };
 
+  const derivar = async () => {
+    setDeriv({ rodando: true });
+    try {
+      const r = await api('imgderivar', { url: urlBoa, id });
+      setDeriv(r);
+      if (r.achou) { BOOT.img = r.cfg; avisar('bom', 'Padrão deduzido e salvo. Recarregue (F5).'); }
+    } catch (e) { setDeriv({ erro: e.message }); avisar('erro', e.message); }
+  };
+
   return html`
     <div className="grade">
       <${Card} titulo="Resource online">
@@ -750,6 +762,7 @@ function ViewImagens({ avisar }) {
                 <option value="padrao">padrao (equip/.../icon_1.png)</option>
                 <option value="template">template ({TemplateID}.png)</option>
                 <option value="pic">pic (Shop_Goods.Pic + .png)</option>
+                <option value="custom">custom (padrao deduzido)</option>
               </select>
             <//>` : null}
           <button className="primario" onClick=${salvar}>Salvar</button>
@@ -779,7 +792,7 @@ function ViewImagens({ avisar }) {
           <${Campo} label="TemplateID de teste">
             <input value=${id} onChange=${e => setId(e.target.value)}/>
           <//>
-          <button onClick=${descobrir} disabled=${!cfg.base}>Descobrir</button>
+          <button onClick=${descobrir} disabled=${!cfg.base}>Testar candidatos</button>
         </div>
         ${desc ? (desc.rodando
           ? html`<p className="mini">testando candidatos…</p>`
@@ -787,12 +800,28 @@ function ViewImagens({ avisar }) {
           : desc.achados.length ? html`<div className="aviso bom">
               <b>${desc.achados.length} caminho(s) responderam:</b>
               <ul>${desc.achados.map(x => html`<li className="mono" key=${x}>${x}</li>`)}</ul>
-              Use o que casar com a sua resource.
             </div>`
           : html`<div className="aviso erro">
-              Nenhum dos ${desc.testados} candidatos devolveu imagem.
-              <br /><small>Se voce tem uma URL que funciona no navegador, copie aqui e
-              eu ajusto o componente.</small></div>`) : null}
+              Nenhum dos ${desc.testados} candidatos devolveu imagem nesta base.
+            </div>`) : null}
+
+        <hr />
+        <${Campo} label="Cole aqui a URL de uma imagem que ABRE no navegador"
+                     dica=${`tem que conter o TemplateID ${id}`}>
+          <input value=${urlBoa} onChange=${e => setUrlBoa(e.target.value)}
+                 placeholder="https://resbr51-.../.../71843...png"/>
+        <//>
+        <button onClick=${derivar} disabled=${!urlBoa}>Derivar padrao</button>
+        ${deriv ? (deriv.rodando ? html`<p className="mini">verificando…</p>`
+          : deriv.erro ? painel_aviso(deriv.erro)
+          : deriv.achou ? html`<div className="aviso bom">
+              Padrão deduzido.<br />
+              base: <code>${deriv.base}</code><br />
+              template: <code>${deriv.template}</code><br />
+              <small>Exemplo com o TemplateID ${id}: ${deriv.exemplo}</small><br />
+              <small>Já salvo. Recarregue (F5).</small>
+            </div>`
+          : html`<div className="aviso erro">essa URL não devolve imagem — ${deriv.motivo}</div>`) : null}
       <//>
 
       <${Card} titulo="Testar uma URL">

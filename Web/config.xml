@@ -45,7 +45,7 @@
     <!--单机版新手引导的开关-->
     <TRAINER_STANDALONE value="true" />
     <!--3.3之前的新版新手引导开关-->
-    <USER_GUILD_ENABLE value="true" />
+    <USER_GUILD_ENABLE value="false" />
     <!--远征码头等级限制-->
     <MINLEVELDUPLICATE value="10" />
     <!-- DISABLE_TASK_ID 为禁用的任务的ID，如有多个，请用逗号隔开 for example : 1002,1003,1004,新浪需要屏蔽的任务有378,379,380,381,604 -->

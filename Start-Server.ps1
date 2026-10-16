@@ -84,7 +84,7 @@ if (Get-RuffleProxy) {
 } elseif (-not (Test-Path $proxyNode) -or -not (Test-Path (Join-Path $proxyDir 'node_modules\ws'))) {
   Write-Error 'Ruffle proxy: instale Node.js e execute npm install em Tools\ruffle-proxy.'
 } else {
-  $p = Start-Process -FilePath $proxyNode -ArgumentList ('"' + $proxyScript + '"') -WorkingDirectory $proxyDir -WindowStyle Minimized -PassThru
+  $p = Start-Process -FilePath $proxyNode -ArgumentList ('"' + $proxyScript + '"') -WorkingDirectory $proxyDir -WindowStyle Hidden -PassThru
   Start-Sleep -Seconds 1
   if (Get-RuffleProxy) { Write-Output "Ruffle proxy: iniciado pid=$($p.Id)" }
   else { Write-Error 'Ruffle proxy encerrou durante a inicializacao.' }

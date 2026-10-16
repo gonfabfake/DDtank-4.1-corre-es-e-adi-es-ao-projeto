@@ -105,11 +105,55 @@ function ItemIcon({ cat = 0, q = 0, size = 40 }) {
     </svg>`;
 }
 
+/* Caminhos por categoria: mesma convencao de Web\function.php::loadimage()
+   (que monta estes caminhos a partir do TemplateID). */
+const PATHS = {
+  1:'equip/m/head/{id}/icon_1.png', 2:'equip/m/glass/{id}/icon_1.png',
+  3:'equip/m/hair/{id}/icon_1.png', 5:'equip/m/cloth/{id}/icon_1.png',
+  6:'equip/m/face/{id}/icon_1.png', 7:'arm/{id}/00.png',
+  8:'equip/armlet/{id}/icon.png',   9:'equip/ring/{id}/icon.png',
+  11:'unfrightprop/{id}/icon.png', 13:'equip/m/suits/{id}/icon_1.png',
+  14:'necklace/{id}/icon.png',     15:'equip/wing/{id}/icon.png',
+  16:'specialprop/chatBall/{id}/icon.png', 17:'equip/offhand/{id}/icon.png',
+  19:'prop/{id}/icon.png', 20:'prop/{id}/icon.png',
+  34:'prop/{id}/icon.png', 35:'unfrightprop/{id}/icon.png',
+  50:'petequip/arm/{id}/icon.png', 51:'petequip/hat/{id}/icon.png',
+  52:'petequip/cloth/{id}/icon.png',
+};
+
+/* URL da resource online. BOOT.img = {base, modo, mostrar}
+   modo: padrao (convencao do jogo) | template (id.png) | pic (chave.png) */
+function urlImagem(it) {
+  const cfg = (window.BOOT && window.BOOT.img) || {};
+  if (!cfg.base) return null;
+  const id = it.template;
+  if (cfg.modo === 'template') return cfg.base + id + '.png';
+  if (cfg.modo === 'pic')      return it.pic ? cfg.base + it.pic + '.png' : null;
+  const t = PATHS[it.cat] || PATHS[19];
+  return cfg.base + t.replace('{id}', id);
+}
+
+/* Imagem online com fallback para o SVG gerado. */
+function ItemImg({ it, size = 44 }) {
+  const [falhou, setFalhou] = React.useState(false);
+  const cfg = (window.BOOT && window.BOOT.img) || {};
+  const url = urlImagem(it);
+  const usarOnline = url && !falhou && cfg.base;
+
+  if (usarOnline) {
+    return html`<img className="ico img-on" src=${url} width=${size} height=${size}
+        loading="lazy" decoding="async"
+        alt=${it.nome || ('item ' + it.template)}
+        onError=${() => setFalhou(true)} />`;
+  }
+  return html`<${ItemIcon} cat=${it.cat} q=${it.q} size=${size}/>`;
+}
+
 function ItemCell({ it, children }) {
   const q = QUALIDADE[it.q] || QUALIDADE[0];
   return html`
     <div className=${'item q' + it.q} title=${`${it.nome || it.template} — ${CAT_NOME[it.cat] || 'cat ' + it.cat} — qualidade ${q.n}${it.forja ? ' (+' + it.forja + ')' : ''}${it.pic ? '\nrecurso: ' + it.pic : ''}`}>
-      <${ItemIcon} cat=${it.cat} q=${it.q} size=${44}/>
+      <${ItemImg} it=${it} size=${44}/>
       <div className="item-txt">
         <b>${it.nome || ('#' + it.template)}</b>
         <small>#${it.template}${it.cat ? ' · ' + (CAT_NOME[it.cat] || it.cat) : ''}</small>
@@ -167,6 +211,7 @@ function App() {
     ['conta', 'Ficha da conta'],
     ['contas', 'Contas'],
     ['itens', 'Itens'],
+    ['imagens', 'Imagens'],
     ['auditoria', 'Auditoria'],
   ];
 
@@ -189,6 +234,7 @@ function App() {
         ${view === 'conta'      && html`<${ViewConta} avisar=${avisar} irItens=${() => setView('itens')} alvo=${alvo} setAlvo=${setAlvo}/>`}
         ${view === 'contas'     && html`<${ViewContas} avisar=${avisar} irConta=${nome => { setAlvo(nome); setView('conta'); }}/>`}
         ${view === 'itens'      && html`<${ViewItens} avisar=${avisar}/>`}
+        ${view === 'imagens'    && html`<${ViewImagens} avisar=${avisar}/>`}
         ${view === 'auditoria'  && html`<${ViewAuditoria} avisar=${avisar}/>`}
       </main>
       <footer>

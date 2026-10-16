@@ -1,32 +1,57 @@
 # Ruffle local — 16/10/2026
 
-Entrada: http://localhost/ (normalizado para http://127.0.0.1/ para manter uma sessao).
-Portal e Flash servidos pelo IIS na porta 80. Porta 8080 nao utilizada.
+Entrada: http://localhost/ (normalizado para http://127.0.0.1/ para manter uma sessão).
+Acesso pelo CELULAR na mesma rede Wi-Fi: http://192.168.3.58/ (ver ACESSO-MOBILE.md).
+Portal e Flash servidos pelo IIS na porta 80. Porta 8080 não utilizada.
 
-## Alteracoes
-- Ruffle oficial v0.7.1 self-hosted em Web/ruffle, incluindo WASM e licencas.
-- play.php substituido: valida sessao, reautentica e emite ticket assinado via
-  /request/CreateLogin.aspx; nao usa checkuser.ashx/logingame.aspx sem implementacao.
-- Eliminadas referencias a variaveis indefinidas e tratamento de chave antes da sessao.
-  A causa exata do HTTP 500 da captura anterior nao foi reproduzida sem a sessao do usuario.
-- WebSocket local 127.0.0.1:8765/game encaminha exclusivamente para 127.0.0.1:9200.
-  Start-Server.ps1 gerencia o proxy Node; origens e mensagens sao restritas.
-- Web/asset.php resolve CORS do servidor de recursos legado, buscando apenas caminhos
-  permitidos no host fixo ddt-a.akamaihd.net. Cache fora da raiz em ResourceCache.
-  Recursos ainda nao armazenados exigem internet. Nao e instalacao offline completa.
-- Integracoes sociais externas e estatisticas desativadas no config.xml.
+## Alterações
+- Ruffle oficial v0.7.1 self-hosted em Web/ruffle, incluindo WASM e licenças.
+- play.php: valida sessão, reautentica e emite ticket assinado via
+  /request/CreateLogin.aspx; não usa checkuser.ashx/logingame.aspx sem implementação.
+- play.php deriva o host da requisição (HTTP_HOST): configura o Flash com
+  `config` = http://<host>/config.php e o WebSocket ws://<host>:8765/game.
+  Nada fixo em 127.0.0.1 chega ao navegador; funciona igual no PC e no celular.
+- Web/config.php serve o config.xml aplicando o host atual; Web/config.xml usa URLs
+  relativas à raiz (/asset.php?path=, /flash/, /request/), então vale em qualquer host.
+- WebSocket 8765/game: aceita somente loopback e 192.168.3.0/24 (origem e peer),
+  destino fixo 127.0.0.1:9200. Ouve em todas as interfaces para o celular atender;
+  o PC segue usando 127.0.0.1. Só o caminho /game é aceito.
+- Web/asset.php: busca apenas caminhos permitidos no host fixo ddt-a.akamaihd.net,
+  valida HTTP 200 antes de gravar (nunca cacheia corpo de erro/redirect), grava de
+  forma atômica (tmp + rename) e mantém o cache fora da raiz em ResourceCache.
+  Aceita os prefixos reais usados pelo cliente (image/, sound/, flash/, swf/ e
+  caminhos raiz como M/... e md5*).
+- Integrações sociais externas e estatísticas desativadas no config.xml.
+- Start-Server.ps1 inicia serviços e proxy com -WindowStyle Hidden (nada aparece no PC).
+- "Sugestões Oficiais" no primeiro acesso é do próprio jogo (ensina o
+  armazenamento local do Flash); fecha com "Aceitar".
 
-## Validacao real
-Chrome headless com Playwright: cadastro e login por HTTP, ticket aceito, SWF carregado
-pelo Ruffle, conexao ao servidor e cidade exibida. Avisos iniciais fechados por clique.
-Captura: C:\Users\gonfa\AppData\Local\Temp\opencode\ddtank\ruffle-runtime.png
-Log: mesmo diretorio, ruffle-runtime.log.
-Foram criadas contas de teste com prefixos ruffletest/rtest; contas existentes nao alteradas.
-Lint PHP e testes de seguranca/echo da ponte passaram.
+## Mobile
+- Binding IIS 192.168.3.58:80 + firewall TCP 80/8765 restrito a LocalSubnet:
+  Setup-Mobile-LAN.ps1 (idempotente, requer administrador).
+- Teste headless garante que a página servida em 192.168.3.58 não faz nenhuma
+  requisição para 127.0.0.1 (checagem automática) — nada quebra no celular.
+- Web/cmfriendicon/icon.png (1x1) existe para eliminar uma tentativa 404 do cliente.
 
-## Limitacoes restantes
-- Batalha nao validada.
-- Log ainda aponta recurso SWF com erro de descompressao e erro em achievementInit.
-- Recursos opcionais weeklyinfo.xml, cmfriendicon/icon.png e SavePlayerAction ausentes.
-- SWFs publicados sao os originais; patch mobile permanece apenas nos fontes.
-- Servidor legado deve permanecer local; nao publicar esta instalacao na internet.
+## Validação real
+Chrome headless com Playwright (PC em 127.0.0.1 e via 192.168.3.58): cadastro e login
+por HTTP, ticket aceito, SWF carregado pelo Ruffle, conexão ao servidor e cidade
+exibida. Módulos de UI (hall/toolbar) carregados em ~6 s com o cache aquecido
+(antes: ~35-45 s por causa de downloads frios e do antigo CORS do CDN).
+Logs/capturas: C:\Users\gonfa\AppData\Local\Temp\opencode\ddtank\ (lan-*.png/log).
+Contas de teste com prefixos ruffletest/rtest; contas existentes não alteradas.
+
+## Limitações restantes
+- Batalha ainda não validada (nem no PC nem no celular).
+- Erros não fatais no console (não impedem o jogo e existiam antes das mudanças):
+  1) um loadBytes interno do loader acusa SWF corrompido; os 77 módulos de UI foram
+  verificados byte a byte e estão íntegros — é uma checagem interna que falha e o
+  jogo segue; 2) achievementInit dispara Error #1009 no EffortManager.
+- weekly/weeklyinfo.xml responde 404 (4 tentativas rápidas) e o painel semanal fica
+  ausente; esse é o comportamento silencioso aceito. NÃO criar esse arquivo sem
+  conteúdo real: com dados vazios o cliente abre o painel e dispara RangeError.
+- SavePlayerAction.ashx não existe no /request e responde 404 (1x por sessão).
+- Primeira carga de um recurso ainda não cacheado depende da internet (CDN legado
+  ddt-a.akamaihd.net). O cache aquece sozinho; visitas seguintes são locais.
+- SWFs publicados são os originais; o patch mobile permanece apenas nos fontes.
+- Servidor legado deve permanecer local; não publicar esta instalação na internet.

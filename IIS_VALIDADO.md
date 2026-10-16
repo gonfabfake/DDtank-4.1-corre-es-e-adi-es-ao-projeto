@@ -30,6 +30,12 @@ Validacao HTTP apos desligar 8080:
 - POST / com senha incorreta: 200, alerta explicito de login/senha incorretos.
 - Nenhum listener TCP na porta 8080.
 
-Ainda nao validado: autenticacao com senha correta, entrada no cliente Flash e
-batalha. HTTP 200 de ServerList nao demonstra disponibilidade de servidor jogavel.
+Ainda nao validado: batalha (nem no PC nem no celular).
+HTTP 200 de ServerList nao demonstra disponibilidade de servidor jogavel.
 Nao executar as antigas receitas de recuperacao que apagam pools/arquivos temporarios.
+
+## Acesso mobile (adicionado em 16/10/2026)
+- Binding 192.168.3.58:80 adicionado ao Default Web Site.
+- Firewall: "DDTank LAN TCP 80" e "DDTank LAN TCP 8765", LocalSubnet.
+- Script idempotente: Setup-Mobile-LAN.ps1. Instrucoes: ACESSO-MOBILE.md.
+- Pagina servida em 192.168.3.58 validada sem nenhuma referencia a 127.0.0.1.

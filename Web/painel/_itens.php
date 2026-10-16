@@ -134,17 +134,21 @@ function data_txt($v): ?string {
     return ($v === null || $v === '') ? null : (string)$v;
 }
 
+/* Normaliza uma linha de item para JSON.
+   O catalogo nao tem ItemID/BagType/Place/Count (item ainda nao pertence a
+   ninguem), entao esses campos ficam null em vez de virar 0 enganoso. */
 function linha_item(array $g): array {
+    $tem = fn($k) => array_key_exists($k, $g);
     return [
-        'itemID'   => (int)$g['ItemID'],
-        'bag'      => (int)$g['BagType'],
-        'slot'     => (int)$g['Place'],
-        'slotNome' => slot_nome((int)$g['Place']),
-        'template' => (int)$g['TemplateID'],
-        'nome'     => $g['Name'],
+        'itemID'   => $tem('ItemID')   ? (int)$g['ItemID']   : null,
+        'bag'      => $tem('BagType')  ? (int)$g['BagType']  : null,
+        'slot'     => $tem('Place')    ? (int)$g['Place']    : null,
+        'slotNome' => $tem('Place')    ? slot_nome((int)$g['Place']) : null,
+        'template' => $tem('TemplateID') ? (int)$g['TemplateID'] : 0,
+        'nome'     => $g['Name'] ?? null,
         'cat'      => isset($g['CategoryID']) ? (int)$g['CategoryID'] : 0,
-        'qtd'      => (int)$g['Count'],
-        'forja'    => (int)($g['StrengthenLevel'] ?? 0),
+        'qtd'      => $tem('Count')    ? (int)$g['Count']    : null,
+        'forja'    => $tem('StrengthenLevel') ? (int)$g['StrengthenLevel'] : 0,
         'q'        => isset($g['Quality']) ? (int)$g['Quality'] : 0,
         'atq'      => isset($g['Attack'])      ? (int)$g['Attack']      : null,
         'def'      => isset($g['Defence'])     ? (int)$g['Defence']     : null,

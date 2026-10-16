@@ -57,7 +57,7 @@ function img_config_ler(): array {
     }
     // normaliza: base sempre termina com /
     $c['base'] = rtrim((string)$c['base'], '/') . ($c['base'] !== '' ? '/' : '');
-    if (!in_array($c['modo'], ['padrao', 'template', 'pic'], true)) $c['modo'] = 'padrao';
+    if (!in_array($c['modo'], ['espelho', 'padrao', 'template', 'pic'], true)) $c['modo'] = 'espelho';
     return $c;
 }
 
@@ -72,4 +72,51 @@ function img_config_gravar(array $novo): array {
     if (!is_dir($dir)) @mkdir($dir, 0777, true);
     file_put_contents(IMG_CONFIG_FILE, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
     return $c;
+}
+
+/* Resolucao de URL remota sem acesso a localhost, LAN ou enderecos reservados.
+   O endereco IPv4 e fixado em CURLOPT_RESOLVE para evitar DNS rebinding.
+   URLs privadas devem ser disponibilizadas como arquivos locais, nao proxy. */
+function img_curl_seguro(string $url) {
+    static $dns = [];
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+        || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+        throw new InvalidArgumentException('URL remota invalida.');
+    }
+    $host = strtolower(rtrim($parts['host'], '.'));
+    if (strlen($host) > 253 || !preg_match('~^[a-z0-9.-]+$~D', $host)
+        || !str_contains($host, '.') || str_contains($host, '..')) {
+        throw new InvalidArgumentException('Host remoto invalido.');
+    }
+    $port = (int)($parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80));
+    if (!in_array($port, [80, 443], true)) {
+        throw new InvalidArgumentException('A resource remota so pode usar portas 80 e 443.');
+    }
+    if (!array_key_exists($host, $dns)) {
+        $ips = filter_var($host, FILTER_VALIDATE_IP)
+            ? [$host] : (gethostbynamel($host) ?: []);
+        if (!$ips) {
+            throw new InvalidArgumentException('Host remoto sem DNS IPv4 valido.');
+        }
+        foreach ($ips as $ip) {
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4
+                | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                throw new InvalidArgumentException('Resource aponta para endereco privado ou reservado.');
+            }
+        }
+        $dns[$host] = $ips[0];
+    }
+    $ch = curl_init($url);
+    if ($ch === false) throw new RuntimeException('Falha ao iniciar cURL.');
+    curl_setopt_array($ch, [
+        CURLOPT_RESOLVE => ["$host:$port:" . $dns[$host]],
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 12,
+        CURLOPT_USERAGENT => 'DDTank-Painel/2',
+    ]);
+    return $ch;
 }

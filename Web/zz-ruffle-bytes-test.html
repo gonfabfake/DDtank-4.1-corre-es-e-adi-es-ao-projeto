@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Ruffle loadData test</title>
+<style>#wrap{width:400px;height:240px;background:#222;margin:4px}</style>
+</head>
+<body>
+<div id="wrap"></div>
+<script src="/ruffle/ruffle.js"></script>
+<script>
+const FILES = [
+  '/flash/ui/spain/swf/trainer.swf',
+  '/flash/ui/spain/swf/trainerui.swf',
+  '/flash/ui/spain/swf/bagandinfo.swf',
+  '/flash/audio.swf',
+  '/flash/ui/spain/swf/firstrecharge.swf',
+  '/flash/ui/spain/swf/noviceactivity.swf',
+  '/flash/ui/spain/swf/chatball.swf',
+  '/flash/ui/spain/swf/roomlist.swf',
+  '/flash/ui/spain/swf/room.swf',
+  '/flash/ui/spain/swf/challengeroom.swf',
+  '/flash/ui/spain/swf/game.swf',
+  '/flash/ui/spain/swf/gameii.swf',
+  '/flash/ui/spain/swf/quest.swf',
+  '/flash/ui/spain/swf/awardsystem.swf',
+  '/flash/ui/spain/swf/academycommon.swf',
+  '/flash/ui/spain/swf/hall.swf',
+  '/flash/ui/spain/swf/toolbar.swf'
+];
+(async () => {
+  for (const f of FILES) {
+    let ok = 'fail';
+    try {
+      const resp = await fetch(f, { cache: 'no-store' });
+      const buf = await resp.arrayBuffer();
+      console.log('TEST fetch ' + f + ' status=' + resp.status + ' bytes=' + buf.byteLength);
+      const player = window.RufflePlayer.newest().createPlayer();
+      document.getElementById('wrap').appendChild(player);
+      const loaded = new Promise(res => {
+        const t = setTimeout(() => res('timeout'), 3000);
+        player.addEventListener('loadeddata', () => { clearTimeout(t); res('loadeddata'); });
+      });
+      player.ruffle().load({ data: new Uint8Array(buf) });
+      const r = await loaded;
+      console.log('TEST result ' + f + ' => ' + r);
+      try { player.ruffle().destroy(); } catch (e) {}
+    } catch (e) {
+      console.log('TEST error ' + f + ' => ' + String(e));
+    }
+  }
+  console.log('TEST ALLDONE');
+})();
+</script>
+</body>
+</html>

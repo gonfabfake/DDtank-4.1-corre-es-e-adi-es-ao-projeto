@@ -59,7 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $id   = (string)($_GET['id'] ?? '71843');
         if ($base === '' || !preg_match('~^[0-9]{1,10}$~D', $id)
             || strlen($tpl) > 250 || str_contains($tpl, '..')) falha('Parametros invalidos.', 400);
-        $u = rtrim($base, '/') . '/' . str_replace('{id}', $id, ltrim($tpl, '/'));
+        $rel = ltrim($tpl, '/');
+        if (str_starts_with($rel, 'image/')) $rel = substr($rel, 6);
+        $u = img_resource_base($base) . str_replace('{id}', $id, $rel);
         try {
             $r = img_consulta_publica($u);
         } catch (Throwable $e) {
@@ -195,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $pic = (string)($_GET['pic'] ?? '');
         if ($base === '' || !preg_match('~^[0-9]{1,10}$~D', $id))
             falha('Resource ou TemplateID invalido.', 400);
-        $base = rtrim($base, '/') . '/';
+        $base = img_resource_base($base);
         try {
             $c = img_curl_seguro($base);
             curl_close($c);

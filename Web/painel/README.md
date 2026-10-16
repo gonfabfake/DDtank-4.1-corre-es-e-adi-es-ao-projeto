@@ -298,3 +298,22 @@ Criado em `Db_Tank41`:
 Script: `Tools\ContaBoost\painel_01_schema.sql` (idempotente).
 `usaimbot` (UserID 25) ja esta como `admin` e em `Game_Commands` com
 `AllCommands` (libera `$ban$`, `$kick$`, `$mute$`, `$unban$`, `$bugbot$`).
+
+## URL de referencia com nome fixo (16/10/2026)
+
+Exemplo informado: `https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png`.
+
+O segmento `guidname` e um nome literal, e **nao** um TemplateID numerico.
+Para verificar esse tipo de imagem, abra a aba Imagens e clique em
+**Testar URL direta**. Esse teste nao modifica a configuracao gravada.
+A funcao **Validar e salvar padrao por TemplateID** continua reservada
+a URLs que contenham um identificador numerico real.
+
+Se for confirmado que outras imagens usam a estrutura `/image/`,
+a URL base correspondente e
+`https://resbr51-myddt-ofc.ddtankswordgames.com/image/`.
+Nao altere a configuracao de todos os itens somente com base neste unico exemplo:
+o mapeamento por categoria deve ser testado com imagens de diferentes itens.
+
+Observacao: disponibilidade do host precisa ser verificada no servidor Windows;
+os testes automatizados validam o codigo sem requerer acesso externo.

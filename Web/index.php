@@ -131,10 +131,11 @@ z.value = v;
 <script type="text/javascript" src="./Assets/js/jquery.ui.button.js"></script>
 <script type="text/javascript" src="./Assets/js/password_ddt.js"></script>
 <style>
-/* Ajustes mobile: portal enxuto para login no celular. Nao afeta o desktop (>820px). */
-@media (max-width: 820px){
+/* Ajustes mobile: portal enxuto para login no celular. Nao afeta o desktop (>1000px). */
+@media (max-width: 1000px){
   body{background:#1c2a38}
   .hearder{display:none}
+  .footerWrap{display:none}
   .wrap-box{background-image:none}
   .w980{width:auto;max-width:620px;padding:0 12px}
   .index-left{float:none;width:auto}

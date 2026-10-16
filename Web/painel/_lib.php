@@ -102,14 +102,22 @@ function db_query(string $sql, array $params = []): array {
     return $rows;
 }
 
-/* Controle de transacao PRECISA ir por sqlsrv_query direto.
-   Em sqlsrv_prepare, "BEGIN TRAN" falha com:
-   "Transaction count after EXECUTE indicates a mismatching number of
-    BEGIN and COMMIT statements". */
-function db_tx(string $sql): void {
+/* Controle de transacao.
+   Nao usar "BEGIN TRAN" como texto: com MARS habilitado o driver reclama
+   ("A transaction that was started in a MARS batch is still active at the
+   end of the batch") e a transacao morre no fim do batch.
+   Use a API propria do driver. */
+function db_tx(string $cmd): void {
     global $conn;
-    if (sqlsrv_query($conn, $sql) === false) {
-        throw new RuntimeException('TX ' . $sql . ': ' . json_encode(sqlsrv_errors(), JSON_UNESCAPED_UNICODE));
+    $cmd = strtoupper(trim($cmd));
+    $ok  = match ($cmd) {
+        'BEGIN TRAN',    'BEGIN',   => sqlsrv_begin_transaction($conn),
+        'COMMIT TRAN',   'COMMIT'   => sqlsrv_commit($conn),
+        'ROLLBACK TRAN', 'ROLLBACK' => sqlsrv_rollback($conn),
+        default          => throw new InvalidArgumentException("comando de transacao desconhecido: $cmd"),
+    };
+    if ($ok === false) {
+        throw new RuntimeException('TX ' . $cmd . ': ' . json_encode(sqlsrv_errors(), JSON_UNESCAPED_UNICODE));
     }
 }
 

@@ -80,8 +80,11 @@ Chk 'lista de contas'       ($d.contas.Count -gt 0) "$($d.contas.Count) contas"
 Chk 'contas com contagem'   ($null -ne $d.contas[0].Itens)
 
 Write-Host "`n=== acoes POST (CSRF exigido) ===" -ForegroundColor Cyan
-$csrf = ($r0 = Invoke-WebRequest "$base/entrar.php" -WebSession $s2 -UseBasicParsing; Csrf $r0.Content)
-$uid  = 25
+$uid = 25
+# o CSRF vem do BOOT injetado pelo app.php
+$appHtml = (Invoke-WebRequest "$base/app.php" -WebSession $s2 -UseBasicParsing).Content
+if ($appHtml -match '"csrf":"([a-f0-9]+)"') { $csrf = $Matches[1] } else { $csrf = '' }
+Chk 'CSRF disponivel no BOOT' ($csrf -ne '')
 function Post($fields) {
   $fd = New-Object System.Collections.Specialized.NameValueCollection
   return Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $fields
@@ -91,7 +94,6 @@ try { Post @{ _csrf='falso'; acao='nivel'; userid=$uid; grade=60 } | Out-Null; C
 catch { Chk 'rejeita CSRF falso' ($_.Exception.Response.StatusCode.value__ -eq 400) }
 
 # nivel invalido -> 400
-$csrf = [string]((Invoke-WebRequest "$base/app.php" -WebSession $s2 -UseBasicParsing).Content -replace '(?s).*name="csrf":"([a-f0-9]+)".*','$1')
 $body = "a=acao&_csrf=$csrf&acao=nivel&userid=$uid&grade=999"
 try { Invoke-WebRequest "$base/api.php" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita nivel invalido' $false }
 catch { Chk 'rejeita nivel invalido' ($_.Exception.Response.StatusCode.value__ -eq 400) }

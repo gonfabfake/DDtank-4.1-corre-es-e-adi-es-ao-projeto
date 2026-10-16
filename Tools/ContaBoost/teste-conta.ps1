@@ -36,11 +36,12 @@ foreach ($conta in @('usaimbot','teste01','25')) {
         try {
             $r = Invoke-WebRequest "$base/conta.php?q=$conta&t=$t" -WebSession $s2 -UseBasicParsing -TimeoutSec 25
             $erro = ''
-            if ($r.Content.Length -lt 1600 -and $erro -eq '')    { $erro = 'pouco conteudo' }
-            # Pagina legitimamente vazia (conta sem mensagens/pets): o aviso
-            # de "nada encontrado" precisa estar la, senao e truncamento.
             if ($r.Content -match 'Fatal error|Parse error|Uncaught|SQLSTATE') { $erro = 'ERRO PHP' }
             if ($r.Content -match 'name="usuario"')                { $erro = 'CAIU NO LOGIN' }
+            # Pagina legitimamente vazia (conta sem mensagens/pets) e curta e
+            # valida: o que nao pode e truncamento silencioso sem aviso algum.
+            $vazio = ($r.Content -match 'Nenhum|Nenhuma')
+            if ($erro -eq '' -and $r.RawContentLength -lt 1600 -and -not $vazio) { $erro = 'pouco conteudo' }
             if ($erro -eq '') { Write-Host ("  [OK]   {0,-9} {1,-10} {2,6}b" -f $conta,$t,$r.RawContentLength) }
             else { Write-Host ("  [FALHA] {0,-9} {1,-10} {2}" -f $conta,$t,$erro) -ForegroundColor Red; $falhas++ }
         } catch {

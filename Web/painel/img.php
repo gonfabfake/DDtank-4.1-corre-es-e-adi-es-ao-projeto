@@ -51,11 +51,17 @@ function enviar(string $arquivo, bool $doCache): void {
 if (!caminho_valido($p)) { http_response_code(400); exit('caminho invalido'); }
 
 $destino = CACHE_DIR . '/' . str_replace('/', DIRECTORY_SEPARATOR, $p);
-$realDestino = realpath(dirname($destino));
-$realCache   = realpath(CACHE_DIR);
-if ($realDestino === false || $realCache === false || !str_starts_with($realDestino, $realCache)) {
+$dir = dirname($destino);
+if (!is_dir($dir)) @mkdir($dir, 0777, true);
+
+/* Defence-in-depth: mesmo com a regex ja barrando "..", URL absoluta e
+   extensão estranha, conferimos que o destino ficou dentro da pasta cache. */
+$realDir   = realpath($dir);
+$realCache = realpath(CACHE_DIR);
+if ($realDir === false || $realCache === false || !str_starts_with($realDir, $realCache)) {
     http_response_code(400); exit('destino fora da pasta de cache');
 }
+$destino = $realDir . DIRECTORY_SEPARATOR . basename($p);
 
 /* ---- 1) ja esta em cache? ---- */
 if (is_file($destino) && filesize($destino) > 0) {
@@ -90,8 +96,6 @@ if (stripos($ct, 'image/') !== 0) {
 }
 
 /* ---- 3) grava a copia local ---- */
-$dir = dirname($destino);
-if (!is_dir($dir)) @mkdir($dir, 0777, true);
 if (@file_put_contents($destino, $body, LOCK_EX) !== false) {
     @chmod($destino, 0644);
 }

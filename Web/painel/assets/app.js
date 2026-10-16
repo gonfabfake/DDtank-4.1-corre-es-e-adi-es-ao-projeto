@@ -240,6 +240,12 @@ function App() {
           <a className="sair" href="sair.php">sair</a>
         </div>
       </header>
+      <section className="painel-hero" aria-label="Visão do painel">
+        <div className="painel-hero-top"><span className="painel-kicker">CENTRAL DE ADMINISTRAÇÃO</span>
+          <span className="painel-pill">DDTank 4.1 • Servidor local</span></div>
+        <h1>${VIEWS.find(([k]) => k === view)?.[1] || 'Painel administrativo'}</h1>
+        <p>Gerenciamento de contas, inventário, imagens e registros com controle de acesso.</p>
+      </section>
       <${Aviso} msg=${msg} tipo=${tipoMsg}/>
       <main>
         ${view === 'conta'      && html`<${ViewConta} avisar=${avisar} irItens=${() => setView('itens')} alvo=${alvo} setAlvo=${setAlvo}/>`}
@@ -692,7 +698,8 @@ function ViewImagens({ avisar }) {
   const [tpl, setTpl] = useState('arm/{id}/00.png');
   const [id, setId] = useState('71843');
   const [desc, setDesc] = useState(null);
-  const [urlBoa, setUrlBoa] = useState('');
+  const [urlBoa, setUrlBoa] = useState('https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png');
+  const [testeDireto, setTesteDireto] = useState(null);
   const [deriv, setDeriv] = useState(null);
   const [cache, setCache] = useState(null);
   const [amostra, setAmostra] = useState([]);
@@ -714,6 +721,7 @@ function ViewImagens({ avisar }) {
       const r = await api('acao', { acao: 'imgconfig', base: cfg.base, modo: cfg.modo,
                                     caminho: cfg.caminho, mostrar: cfg.mostrar ? 1 : 0 }, 'POST');
       BOOT.img = r.cfg || BOOT.img;
+      if (r.cfg) setCfg(r.cfg);
       avisar('bom', 'Configuracao salva. Recarregue a pagina (F5) para aplicar em todas as telas.');
     } catch (e) { avisar('erro', e.message); }
   };
@@ -732,12 +740,22 @@ function ViewImagens({ avisar }) {
     } catch (e) { setDesc({ erro: e.message }); avisar('erro', e.message); }
   };
 
+  const testarLinkDireto = async () => {
+    setTesteDireto({ rodando: true });
+    try {
+      setTesteDireto(await api('imgurl', { url: urlBoa }));
+    } catch (e) {
+      setTesteDireto({ erro: e.message });
+      avisar('erro', e.message);
+    }
+  };
+
   const derivar = async () => {
     setDeriv({ rodando: true });
     try {
-      const r = await api('imgderivar', { url: urlBoa, id });
+      const r = await api('acao', { acao: 'imgderivar', url: urlBoa, id }, 'POST');
       setDeriv(r);
-      if (r.achou) { BOOT.img = r.cfg; avisar('bom', 'Padrão deduzido e salvo. Recarregue (F5).'); }
+      if (r.achou) { BOOT.img = r.cfg; setCfg(r.cfg); avisar('bom', 'Padrão validado e salvo. Recarregue (F5).'); }
     } catch (e) { setDeriv({ erro: e.message }); avisar('erro', e.message); }
   };
 
@@ -765,7 +783,7 @@ function ViewImagens({ avisar }) {
                 <option value="custom">custom (padrao deduzido)</option>
               </select>
             <//>` : null}
-          <button className="primario" onClick=${salvar}>Salvar</button>
+          <button className="primario" onClick=${salvar}>Salvar configuração</button>
         </div>
         <p className="mini">
           No modo <b>espelho</b>, a primeira vez que cada imagem aparece o servidor
@@ -811,7 +829,26 @@ function ViewImagens({ avisar }) {
           <input value=${urlBoa} onChange=${e => setUrlBoa(e.target.value)}
                  placeholder="https://resbr51-.../.../71843...png"/>
         <//>
-        <button onClick=${derivar} disabled=${!urlBoa}>Derivar padrao</button>
+        <p className="mini">
+          URL de referência com nome fixo, como <code>guidname</code>? Use
+          <b> Testar URL direta</b>. Isso apenas consulta a imagem, sem salvar
+          um padrão inválido para os outros itens. Para derivar um padrão
+          reutilizável, informe uma URL contendo o TemplateID numérico.
+        </p>
+        <div className="acoes-url">
+          <button onClick=${testarLinkDireto} disabled=${!urlBoa || !!testeDireto?.rodando}>Testar URL direta</button>
+          <button onClick=${derivar}
+                  disabled=${!urlBoa || !/^[0-9]{1,10}$/.test(id) || !urlBoa.includes(id)}>Validar e salvar padrão por TemplateID</button>
+        </div>
+        ${testeDireto ? (testeDireto.rodando
+          ? html`<p className="mini">consultando imagem de referência…</p>`
+          : testeDireto.erro ? painel_aviso(testeDireto.erro)
+          : html`<div className=${'aviso ' + (testeDireto.achou ? 'bom' : 'erro')}>
+              <b>${testeDireto.achou ? 'Imagem encontrada' : 'Imagem não encontrada'}</b><br />
+              <span className="mono">${testeDireto.status} · ${testeDireto.contentType || 'sem content-type'}
+              · ${testeDireto.bytes || 0} bytes</span>
+              ${testeDireto.motivo ? html`<br/><small>${testeDireto.motivo}</small>` : null}
+            </div>`) : null}
         ${deriv ? (deriv.rodando ? html`<p className="mini">verificando…</p>`
           : deriv.erro ? painel_aviso(deriv.erro)
           : deriv.achou ? html`<div className="aviso bom">

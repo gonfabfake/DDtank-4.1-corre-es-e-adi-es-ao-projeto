@@ -50,9 +50,9 @@ foreach (array('WebPrivate.config', 'Web.config') as $cfgName) {
     if (!is_file($cfgPath)) { continue; }
     $requestConfig = @simplexml_load_file($cfgPath);
     if ($requestConfig === false) { continue; }
-    foreach ($requestConfig->appSettings->add as $setting) {
-        if ((string)$setting['key'] === 'LoginKey') { $loginKey = (string)$setting['value']; break 2; }
-    }
+    // Aceita tanto raiz <appSettings> (WebPrivate.config) quanto <configuration> (Web.config).
+    $found = $requestConfig->xpath('//add[@key="LoginKey"]');
+    if ($found && isset($found[0])) { $loginKey = (string)$found[0]['value']; break; }
 }
 if ($loginKey === '') {
     $error = 'A chave de integracao do servidor nao esta configurada.';

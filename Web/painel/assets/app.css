@@ -354,3 +354,7 @@ footer { color: #a6b8d2; border-color: #304260; }
 @media (prefers-reduced-motion: reduce) {
   *, *:before, *:after { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+.acoes-url {display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.acoes-url button {flex:1 1 220px;min-height:42px;background:#284467;color:#e3f2ff;border:1px solid #47709c;border-radius:10px;padding:10px 16px;cursor:pointer}
+.acoes-url button:disabled {opacity:.45;cursor:not-allowed}

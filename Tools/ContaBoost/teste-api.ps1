@@ -86,22 +86,21 @@ $appHtml = (Invoke-WebRequest "$base/app.php" -WebSession $s2 -UseBasicParsing).
 if ($appHtml -match '"csrf":"([a-f0-9]+)"') { $csrf = $Matches[1] } else { $csrf = '' }
 Chk 'CSRF disponivel no BOOT' ($csrf -ne '')
 function Post($fields) {
-  $fd = New-Object System.Collections.Specialized.NameValueCollection
   return Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $fields
 }
 # CSRF errado -> 400
 try { Post @{ _csrf='falso'; acao='nivel'; userid=$uid; grade=60 } | Out-Null; Chk 'rejeita CSRF falso' $false }
-catch { Chk 'rejeita CSRF falso' ($_.Exception.Response.StatusCode.value__ -eq 400) }
+catch { Chk 'rejeita CSRF falso' ($_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
 
 # nivel invalido -> 400
-$body = "a=acao&_csrf=$csrf&acao=nivel&userid=$uid&grade=999"
-try { Invoke-WebRequest "$base/api.php" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita nivel invalido' $false }
-catch { Chk 'rejeita nivel invalido' ($_.Exception.Response.StatusCode.value__ -eq 400) }
+$body = "_csrf=$csrf&acao=nivel&userid=$uid&grade=999"
+try { Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita nivel invalido' $false }
+catch { Chk 'rejeita nivel invalido' ($_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
 
 # slot incompativel -> 400
-$body = "a=acao&_csrf=$csrf&acao=conceder&userid=$uid&templateid=71843&bagtype=0&place=12&qtd=1"
-try { Invoke-WebRequest "$base/api.php" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita slot incompativel' $false }
-catch { Chk 'rejeita slot incompativel' ($_.Exception.Response.StatusCode.value__ -eq 400) }
+$body = "_csrf=$csrf&acao=conceder&userid=$uid&templateid=71843&bagtype=0&place=12&qtd=1"
+try { Invoke-WebRequest "$base/api.php?a=acao" -WebSession $s2 -UseBasicParsing -Method Post -Body $body | Out-Null; Chk 'rejeita slot incompativel' $false }
+catch { Chk 'rejeita slot incompativel' ($_.Exception.Response.StatusCode.value__ -eq 400) $_.Exception.Response.StatusCode.value__ }
 
 Write-Host ''
 if ($falhas -eq 0) { Write-Host 'API + SPA: TUDO OK' -ForegroundColor Green }

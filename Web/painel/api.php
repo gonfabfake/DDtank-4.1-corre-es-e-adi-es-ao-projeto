@@ -23,7 +23,8 @@ function falha(string $msg, int $status = 400): void {
     responder(['ok' => false, 'erro' => $msg], $status);
 }
 
-$a = (string)($_GET['a'] ?? '');
+// Aceita 'a' na query string ou no corpo do POST.
+$a = (string)($_GET['a'] ?? $_POST['a'] ?? '');
 
 /* ============================ LEITURAS ============================ */
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

@@ -193,7 +193,7 @@ function App() {
       </main>
       <footer>
         localhost apenas · todas as ações ficam em Auditoria ·
-        <a href="README.md" target="_blank" rel="noopener"> documentação</a>
+        documentação em <code>C:\DDTank4.1-main\Web\painel\README.md</code>
       </footer>
     </div>`;
 }

@@ -91,6 +91,8 @@ WHERE UserID = @UserID;
 /* ================= 3) ITENS ================= */
 DECLARE @Seq int, @BagType int, @Place int, @TemplateID int, @ItemCount int, @Label varchar(60);
 DECLARE @ItemID int, @FreeSlot int, @OccupantItemID int;
+-- EXEC nao aceita expressao como valor de parametro: converta antes.
+DECLARE @Now datetime = GETDATE();
 
 DECLARE kit_cur CURSOR LOCAL FAST_FORWARD FOR
     SELECT Seq, BagType, Place, TemplateID, ItemCount, [Label] FROM #Kit ORDER BY Seq;
@@ -152,8 +154,6 @@ BEGIN
     END
     ELSE
     BEGIN
-        -- EXEC nao aceita expressao como valor de parametro: converta antes.
-        DECLARE @Now datetime = GETDATE();
         SET @ItemID = 0;
         EXEC Db_Tank41.dbo.SP_Users_Items_Add
              @ItemID           = @ItemID OUTPUT,

@@ -191,3 +191,48 @@ function img_derivar_template(string $url, string $id): array {
     $base = strtolower($parts['scheme']) . '://' . strtolower($parts['host']) . $porta . '/';
     return ['base' => $base, 'template' => $tpl];
 }
+
+
+/* Resolve candidatos exclusivamente a partir dos campos do banco. Nao supor que
+   Shop_Goods.Pic seja um TemplateID. Mantem a convencao de Web/function.php. */
+function img_candidatos_item(array $item): array {
+    $categoria = (int)($item['CategoryID'] ?? 0);
+    $pic = trim((string)($item['Pic'] ?? ''));
+    $id = (string)(int)($item['TemplateID'] ?? 0);
+    $chaves = [];
+    foreach ([$pic, $id] as $chave) {
+        if (preg_match('~^[a-zA-Z0-9_-]{1,128}$~D', $chave) && !in_array($chave, $chaves, true)) {
+            $chaves[] = $chave;
+        }
+    }
+    $formatos = img_caminhos();
+    $modelo = $formatos[$categoria] ?? 'prop/{id}/icon.png';
+    $modelos = [$modelo];
+    if (str_contains($modelo, 'equip/m/')) {
+        $modelos[] = str_replace('equip/m/', 'equip/f/', $modelo);
+    }
+    $resultado = [];
+    // Mesmo ordenamento do React: Pic masculino, Pic feminino, ID masculino e ID feminino.
+    foreach ($chaves as $chave) {
+        foreach ($modelos as $m) {
+            $p = str_replace('{id}', $chave, $m);
+            if (!in_array($p, $resultado, true)) $resultado[] = $p;
+        }
+    }
+    return array_slice($resultado, 0, 8);
+}
+
+/* Cache legado carregado pelo proprio jogo via Web/asset.php.
+   Usa exatamente a chave SHA-256 de asset.php, sem expor rotas de arquivo locais. */
+function img_cache_jogo(string $rel): ?string {
+    if (!preg_match('~^[A-Za-z0-9][A-Za-z0-9_./-]{1,199}\\.(?:png|jpg|jpeg|gif|webp)$~iD', $rel)
+        || str_contains($rel, '..')) return null;
+    $cache = dirname(__DIR__, 2) . '/ResourceCache';
+    $arquivo = $cache . '/' . hash('sha256', 'image/' . $rel);
+    if (!is_file($arquivo) || !is_readable($arquivo)) return null;
+    $tamanho = @filesize($arquivo);
+    if (!$tamanho || $tamanho > 2097152) return null;
+    $info = @getimagesize($arquivo);
+    $tipo = is_array($info) ? ($info['mime'] ?? '') : '';
+    return in_array($tipo, ['image/png','image/jpeg','image/gif','image/webp'], true) ? $arquivo : null;
+}

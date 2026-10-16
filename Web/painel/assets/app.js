@@ -723,6 +723,7 @@ function ViewImagens({ avisar }) {
   const [testeDireto, setTesteDireto] = useState(null);
   const [deriv, setDeriv] = useState(null);
   const [cache, setCache] = useState(null);
+  const [diagnostico, setDiagnostico] = useState(null);
   const [amostra, setAmostra] = useState([]);
 
   useEffect(() => {
@@ -736,6 +737,12 @@ function ViewImagens({ avisar }) {
   useEffect(() => {
     api('catalogo', { q: '' }).then(d => setAmostra(d.itens.slice(0, 12))).catch(() => {});
   }, []);
+
+  const diagnosticarItem = async () => {
+    setDiagnostico({ rodando: true });
+    try { setDiagnostico(await api('imgdiag', { id })); }
+    catch (e) { setDiagnostico({ erro: e.message }); }
+  };
 
   const salvar = async () => {
     try {
@@ -782,6 +789,39 @@ function ViewImagens({ avisar }) {
 
   return html`
     <div className="grade">
+      <${Card} titulo="Diagnóstico de imagem por item (SQL + cache + rede)">
+        <p className="mini">O teste consulta Shop_Goods no banco real, mostra o campo Pic e verifica
+          os arquivos que o painel tentará abrir. Nenhum dado do banco é alterado.</p>
+        <div className="edit">
+          <${Campo} label="TemplateID do item que não mostra imagem">
+            <input value=${id} inputMode="numeric" onChange=${e => setId(e.target.value)}/>
+          <//>
+          <button onClick=${diagnosticarItem}
+                  disabled=${!/^[0-9]{1,10}$/.test(id) || !!diagnostico?.rodando}>
+            Diagnosticar imagem
+          </button>
+        </div>
+        ${diagnostico ? (diagnostico.rodando
+          ? html`<p className="mini">Conferindo SQL, cache do jogo e até duas URLs remotas…</p>`
+          : diagnostico.erro ? html`<div className="aviso">${diagnostico.erro}</div>`
+          : html`<div className="img-diagnostico">
+              <p><b>${diagnostico.produto.nome}</b> • #${diagnostico.produto.template}
+                • Categoria ${diagnostico.produto.categoria}</p>
+              <p className="mini">Pic do banco: <code>${diagnostico.produto.pic || '(vazio)'}</code><br/>
+                Base: <code>${diagnostico.base || '(não configurada)'}</code></p>
+              <div className="img-diagnostico-lista">
+                ${diagnostico.candidatos.map((x,i) => html`
+                  <div key=${i} className="img-diagnostico-item">
+                    <code>${x.caminho}</code>
+                    <small>${x.resultado}${x.http != null ? ' • HTTP ' + x.http : ''}
+                      ${x.cachePainel ? ' • cache painel' : ''}
+                      ${x.cacheJogo ? ' • cache do jogo' : ''}</small>
+                    ${x.detalhe ? html`<small>${x.detalhe}</small>` : null}
+                  </div>`)}
+              </div>
+              <p className="mini">${diagnostico.nota}</p>
+            </div>`) : null}
+      <//>
       <${Card} titulo="Resource online">
         <div className="edit">
           <${Campo} label="URL base" dica="termina com /">

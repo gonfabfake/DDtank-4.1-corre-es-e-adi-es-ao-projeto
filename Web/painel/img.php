@@ -35,6 +35,10 @@ function enviar(string $arquivo, bool $doCache): void {
     $fi = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : null;
     if ($fi) { $ct = (string) finfo_file($fi, $arquivo); finfo_close($fi); }
     if (!$ct || $ct === 'application/octet-stream') {
+        $img = @getimagesize($arquivo);
+        if (is_array($img)) $ct = $img['mime'] ?? $ct;
+    }
+    if (!$ct || $ct === 'application/octet-stream') {
         $ext = strtolower(pathinfo($arquivo, PATHINFO_EXTENSION));
         $ct = ['png'=>'image/png','jpg'=>'image/jpeg','jpeg'=>'image/jpeg',
                'gif'=>'image/gif','webp'=>'image/webp','svg'=>'image/svg+xml'][$ext] ?? 'application/octet-stream';
@@ -68,7 +72,14 @@ if (is_file($destino) && filesize($destino) > 0) {
     enviar($destino, true);
 }
 
-/* ---- 2) buscar na resource online e espelhar ---- */
+/* ---- 2) aproveitar o ResourceCache existente do jogo, se houver. ---- */
+$localJogo = img_cache_jogo($p);
+if ($localJogo !== null) {
+    header('X-DDT-Image-Source: game-cache');
+    enviar($localJogo, true);
+}
+
+/* ---- 3) buscar na resource online e espelhar ---- */
 $cfg = img_config_ler();
 if ($cfg['base'] === '') { http_response_code(404); exit('sem resource configurada'); }
 

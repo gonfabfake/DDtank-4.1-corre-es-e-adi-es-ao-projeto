@@ -231,6 +231,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     /* Derivar realiza escrita e, portanto, exige POST+CSRF; GET nao altera nada. */
     if ($a === 'imgderivar') falha('Use POST autenticado para derivar e salvar.', 405);
 
+    /* Diagnostico pontual: consulta o Shop_Goods real da instalacao, cruza o
+       cache do jogo e testa no maximo 2 URLs remotas. Nao modifica dados. */
+    if ($a === 'imgdiag') {
+        $id = (string)($_GET['id'] ?? '');
+        if (!preg_match('~^[0-9]{1,10}$~D', $id) || (int)$id < 1)
+            falha('Informe um TemplateID numerico valido.', 400);
+        $produto = db_um(
+            "SELECT TOP 1 TemplateID, Name, CategoryID, Pic
+             FROM Db_Tank41.dbo.Shop_Goods WHERE TemplateID = ?", [(int)$id]);
+        if (!$produto) falha('TemplateID nao existe em Shop_Goods.', 404);
+        $cfg = img_config_ler();
+        $resultados = [];
+        $remotos = 0;
+        foreach (img_candidatos_item($produto) as $rel) {
+            $painel = __DIR__ . '/resource/' . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+            $cachePainel = is_file($painel) && @filesize($painel) > 0;
+            $cacheJogo = img_cache_jogo($rel) !== null;
+            $r = ['caminho' => $rel, 'cachePainel' => $cachePainel,
+                'cacheJogo' => $cacheJogo, 'url' => img_resource_base($cfg['base']) . $rel];
+            if ($cachePainel || $cacheJogo) {
+                $r['resultado'] = 'disponivel_no_cache';
+            } elseif ($cfg['base'] === '') {
+                $r['resultado'] = 'base_nao_configurada';
+            } elseif ($remotos < 2) {
+                $remotos++;
+                try {
+                    $teste = img_consulta_publica($r['url'], false, 2097152);
+                    $r['http'] = $teste['status'];
+                    $r['contentType'] = $teste['contentType'];
+                    $r['bytes'] = $teste['bytes'];
+                    $r['resultado'] = $teste['achou'] ? 'imagem_remota' : 'falha_remota';
+                    $r['detalhe'] = $teste['erro'] ?: ($teste['achou'] ? '' :
+                        'HTTP ' . $teste['status'] . ' - ' . $teste['contentType']);
+                } catch (Throwable $e) {
+                    $r['resultado'] = 'erro_ao_consultar';
+                    $r['detalhe'] = $e->getMessage();
+                }
+            } else {
+                $r['resultado'] = 'nao_testado_remotamente';
+            }
+            $resultados[] = $r;
+        }
+        responder(['ok' => true,
+            'produto' => ['template' => (int)$produto['TemplateID'],
+                'nome' => (string)$produto['Name'],
+                'categoria' => (int)$produto['CategoryID'],
+                'pic' => (string)($produto['Pic'] ?? '')],
+            'modo' => $cfg['modo'], 'base' => img_resource_base($cfg['base']),
+            'candidatos' => $resultados,
+            'nota' => 'Apenas 2 URLs remotas sao testadas por consulta; todos os caminhos mostram o estado do cache.']);
+    }
+
     if ($a === 'imgconfig') {
         responder(['ok' => true, 'cfg' => img_config_ler(), 'modelos' => img_caminhos()]);
     }

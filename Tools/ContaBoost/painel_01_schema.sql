@@ -33,7 +33,7 @@ CREATE TABLE dbo.Admin_Auditoria (
     IP        nvarchar(50) NULL
 );
 
-/* ---------- Loginsque会被gravados: tentativas ---------- */
+/* ---------- Tentativas de login (limite de forca bruta) ---------- */
 IF OBJECT_ID('dbo.Admin_Tentativas', 'U') IS NULL
 CREATE TABLE dbo.Admin_Tentativas (
     ID        int IDENTITY(1,1) NOT NULL PRIMARY KEY,
@@ -43,8 +43,10 @@ CREATE TABLE dbo.Admin_Tentativas (
     Sucesso   bit          NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IX_Admin_Auditoria_Quando ON dbo.Admin_Auditoria(Quando DESC);
-CREATE INDEX IX_Admin_Tentativas_User  ON dbo.Admin_Tentativas(UserName, Quando DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Admin_Auditoria_Quando' AND object_id=OBJECT_ID('dbo.Admin_Auditoria'))
+    CREATE INDEX IX_Admin_Auditoria_Quando ON dbo.Admin_Auditoria(Quando DESC);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Admin_Tentativas_User' AND object_id=OBJECT_ID('dbo.Admin_Tentativas'))
+    CREATE INDEX IX_Admin_Tentativas_User  ON dbo.Admin_Tentativas(UserName, Quando DESC);
 
 /* =====================================================================
    PROMOCAO DA usaimbot A ADMIN

@@ -8,60 +8,57 @@ $adm = admin_exigir();
 $erro = null; $ok = null;
 
 /* ---------------------------------------------------------------------
-   Conceder item.
-   Regras do servidor (Source Server\Game.Server):
-     - SP_Users_Items_Add e a mesma procedure de PlayerBussiness.AddGoods
-     - ItemID e IDENTITY, nunca informado
-     - ValidDate 0 = nunca expira; Hole1..6 = -1 = furos fechados
-     - BagType 0 (equipado) Place 0..30, 31..79 mochila, >=80 overflow
-     - BagType 1 (PropBag) Place 0..48
+   Menor slot LIVRE. Filtrar pelos slots OCUPADOS devolveria NULL
+   justamente quando a bolsa esta vazia -- por isso a lista e gerada.
    --------------------------------------------------------------------- */
-function item_da_grade_para_ou_cabeca(int $grade): array {
-    $gp = gp_para_grade($grade);
-    return ['grade' => $grade, 'gp' => $gp ?? 0];
-}
-
 function primeiro_slot_livre(int $userID, int $bagType, int $ini, int $fim): ?int {
-    $ocupados = array_column(db_query(
+    $ocupados = array_map('intval', array_column(db_query(
         "SELECT Place FROM Db_Tank41.dbo.Sys_Users_Goods
          WHERE UserID = ? AND BagType = ? AND IsExist = 1 AND Place >= ? AND Place <= ?",
         [$userID, $bagType, $ini, $fim]
-    ), 'Place');
+    ), 'Place'));
     for ($p = $ini; $p <= $fim; $p++) {
         if (!in_array($p, $ocupados, true)) return $p;
     }
     return null;
 }
 
+/* ---------------------------------------------------------------------
+   Concede um item. Devolve [mensagem] ou [null, erro].
+   Usa a SP_Users_Items_Add, a mesma procedure de PlayerBussiness.AddGoods.
+   Regras: ItemID e IDENTITY, ValidDate 0 = nunca expira,
+          Hole1..6 = -1 = furos fechados.
+   --------------------------------------------------------------------- */
 function conceder_item(int $userID, int $templateID, int $bagType, int $place, int $qtd): array {
-    global $erro;
+    global $conn;
 
     $tpl = db_um(
         "SELECT TemplateID, Name, CategoryID, NeedLevel FROM Db_Tank41.dbo.Shop_Goods WHERE TemplateID = ?",
         [$templateID]
     );
-    if (!$tpl) { $erro = "TemplateID $templateID nao existe no catalogo."; return []; }
+    if (!$tpl) return [null, "TemplateID $templateID nao existe no catalogo."];
 
-    $conta = db_um("SELECT UserID, NickName, Grade FROM Db_Tank41.dbo.Sys_Users_Detail WHERE UserID = ?", [$userID]);
-    if (!$conta) { $erro = 'Conta nao encontrada.'; return []; }
+    if (!db_um("SELECT UserID FROM Db_Tank41.dbo.Sys_Users_Detail WHERE UserID = ?", [$userID])) {
+        return [null, 'Conta nao encontrada.'];
+    }
+
+    $msgs = [];
 
     if ($bagType === 0 && $place < 31) {
-        // Slot de equipamento: o CategoryID decide a casa, o slot vem do painel.
-        $cat = (int)$tpl['CategoryID'];
-        $esperado = $cat - 1;
+        // Slot de equipamento: quem decide a casa e o CategoryID.
+        $esperado = (int)$tpl['CategoryID'] - 1;
         if ($esperado !== $place) {
-            $erro = "Item de categoria $cat pertence ao slot $esperado (" . slot_nome($esperado) . '), nao ' . $place . '.';
-            return [];
+            return [null, "Item de categoria {$tpl['CategoryID']} pertence ao slot $esperado ("
+                       . slot_nome($esperado) . "), nao $place."];
         }
     }
 
     // Ja existe este template na conta? reaproveita em vez de duplicar.
     $existente = db_um(
-        "SELECT ItemID, Place FROM Db_Tank41.dbo.Sys_Users_Goods
+        "SELECT ItemID FROM Db_Tank41.dbo.Sys_Users_Goods
          WHERE UserID = ? AND TemplateID = ? AND IsExist = 1 AND BagType = ?",
         [$userID, $templateID, $bagType]
     );
-
     if ($existente) {
         db_exec(
             "UPDATE Db_Tank41.dbo.Sys_Users_Goods
@@ -69,7 +66,7 @@ function conceder_item(int $userID, int $templateID, int $bagType, int $place, i
              WHERE ItemID = ?",
             [$place, $qtd, $existente['ItemID']]
         );
-        return [[$place, "reaproveitado o ItemID {$existente['ItemID']}"]];
+        return ['reaproveitado o ItemID ' . $existente['ItemID'] . ' (nao duplicou)'];
     }
 
     // Libera o slot de destino: manda o ocupante para a mochila.
@@ -81,28 +78,70 @@ function conceder_item(int $userID, int $templateID, int $bagType, int $place, i
     if ($ocupante) {
         $livre = primeiro_slot_livre($userID, 0, 31, 79);
         if ($livre !== null) {
-            db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Goods SET Place = ?, RemoveDate = GETDATE(), RemoveType = 22
-                     WHERE ItemID = ?", [$livre, $ocupante['ItemID']]);
-            $ok .= "Item anterior do slot $place foi para a mochila (slot $livre). ";
+            db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Goods
+                     SET Place = ?, RemoveDate = GETDATE(), RemoveType = 22 WHERE ItemID = ?",
+                    [$livre, $ocupante['ItemID']]);
+            $msgs[] = "item anterior do slot $place foi para a mochila (slot $livre)";
         } else {
-            db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Goods SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 30
-                     WHERE ItemID = ?", [$ocupante['ItemID']]);
-            $ok .= "Mochila cheia: item anterior do slot $place foi descartado. ";
+            db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Goods
+                     SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 30 WHERE ItemID = ?",
+                    [$ocupante['ItemID']]);
+            $msgs[] = 'mochila cheia: item anterior do slot ' . $place . ' foi descartado';
         }
     }
 
-    $novoId = 0;
+    $agora   = date('Y-m-d H:i:s');
+    $itemID  = 0;
+
+    $sql = '{call Db_Tank41.dbo.SP_Users_Items_Add ('
+         . str_repeat('?,', 34) . '?)}';
+
     $params = [
-        [$novoId, SQLSRV_PARAM_OUT],
-        $userID, $templateID, $place, $qtd,
-        1, '', 1,          // IsJudge, Color, IsExist
-        0, 0, 0, 0, 0,     // StrengthenLevel, Attack/Defend/Luck/Agility Compose
-        0,                 // IsBinds
+        [$itemID, SQLSRV_PARAM_OUT],  //  1 @ItemID
+        $userID,                      //  2 @UserID
+        $templateID,                  //  3 @TemplateID
+        $place,                       //  4 @Place
+        $qtd,                         //  5 @Count
+        1,                            //  6 @IsJudge
+        '',                           //  7 @Color
+        1,                            //  8 @IsExist
+        0,                            //  9 @StrengthenLevel
+        0,                            // 10 @AttackCompose
+        0,                            // 11 @DefendCompose
+        0,                            // 12 @LuckCompose
+        0,                            // 13 @AgilityCompose
+        0,                            // 14 @IsBinds
+        $agora,                       // 15 @BeginDate
+        0,                            // 16 @ValidDate  (0 = nunca expira)
+        $bagType,                     // 17 @BagType
+        '',                           // 18 @Skin
+        0,                            // 19 @IsUsed
+        0,                            // 20 @RemoveType
+        -1, -1, -1, -1, -1, -1,       // 21-26 @Hole1..6  (-1 = fechados)
+        0,                            // 27 @StrengthenTimes
+        0,                            // 28 @Hole5Level
+        0,                            // 29 @Hole5Exp
+        0,                            // 30 @Hole6Level
+        0,                            // 31 @Hole6Exp
+        0,                            // 32 @IsGold
+        0,                            // 33 @goldValidDate
+        0,                            // 34 @StrengthenExp
+        $agora,                       // 35 @goldBeginTime
     ];
-    // Monta a chamada com parametros posicionais na ordem da procedure.
-    $stmt = sqlsrv_prepare($conn, "{call Db_Tank41.dbo.SP_Users_Items_Add (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)}",
-        $params);
-    return $novoId;
+
+    $stmt = sqlsrv_prepare($conn, $sql, $params);
+    if ($stmt === false) {
+        return [null, 'prepare: ' . json_encode(sqlsrv_errors(), JSON_UNESCAPED_UNICODE)];
+    }
+    if (!sqlsrv_execute($stmt)) {
+        $err = json_encode(sqlsrv_errors(), JSON_UNESCAPED_UNICODE);
+        sqlsrv_free_stmt($stmt);
+        return [null, 'execute: ' . $err];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    $msgs[] = "novo ItemID $itemID";
+    return [implode('; ', $msgs)];
 }
 
 /* --------------------------------------------------------------------- */
@@ -119,15 +158,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && admin_pode_escrever()) {
             $place  = (int)($_POST['place'] ?? -1);
             $qtd    = max(1, min(9999, (int)($_POST['qtd'] ?? 1)));
 
-            $livre = $place >= 0 ? $place : ($bag === 1 ? primeiro_slot_livre($userID, 1, 0, 48)
-                                                       : primeiro_slot_livre($userID, 0, 31, 79));
-            if ($livre === null) {
-                $erro = 'Sem espaco livre nessa bolsa.';
+            if (!in_array($bag, [0, 1], true)) {
+                $erro = 'Bolsa invalida.';
             } else {
-                [$itemID, $msg] = conceder_item($userID, $tid, $bag, $livre, $qtd);
-                if (!$erro) {
-                    $ok = "Item $tid (x$qtd) colocado no slot $livre. $msg";
-                    auditoria('conceder_item', $userID, "TemplateID=$tid BagType=$bag Place=$livre Qtd=$qtd");
+                $livre = $place >= 0 ? $place
+                       : ($bag === 1 ? primeiro_slot_livre($userID, 1, 0, 48)
+                                     : primeiro_slot_livre($userID, 0, 31, 79));
+                if ($livre === null) {
+                    $erro = 'Sem espaco livre nessa bolsa.';
+                } elseif ($bag === 1 && $livre > 48) {
+                    $erro = 'A bolsa de itens vai do slot 0 ao 48.';
+                } elseif ($bag === 0 && $livre >= 80) {
+                    $erro = 'Slot fora do limite (80 em diante vira overflow).';
+                } else {
+                    [$msg, $falha] = conceder_item($userID, $tid, $bag, $livre, $qtd);
+                    if ($falha) {
+                        $erro = $falha;
+                    } else {
+                        $ok = "Item $tid (x$qtd) no slot $livre - $msg";
+                        auditoria('conceder_item', $userID, "TemplateID=$tid BagType=$bag Place=$livre Qtd=$qtd");
+                    }
                 }
             }
         }
@@ -135,8 +185,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && admin_pode_escrever()) {
             $itemID = (int)($_POST['itemid'] ?? 0);
             $userID = (int)($_POST['userid'] ?? 0);
             db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Goods
-                     SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 1 WHERE ItemID = ? AND UserID = ?",
-                    [$itemID, $userID]);
+                     SET IsExist = 0, RemoveDate = GETDATE(), RemoveType = 1
+                     WHERE ItemID = ? AND UserID = ?", [$itemID, $userID]);
             $ok = "Item $itemID removido do inventario.";
             auditoria('remover_item', $userID, "ItemID=$itemID");
         }
@@ -149,25 +199,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && admin_pode_escrever()) {
 }
 
 /* --------------------------------------------------------------------- */
-$alvo = (int)($_GET['u'] ?? $_POST['userid'] ?? 0);
+$alvo  = (int)($_GET['u'] ?? $_POST['userid'] ?? 0);
 $conta = $alvo ? db_um("SELECT UserID, NickName, Grade FROM Db_Tank41.dbo.Sys_Users_Detail WHERE UserID = ?", [$alvo]) : null;
 
 $busca = trim($_GET['q'] ?? '');
 $cat   = trim($_GET['cat'] ?? '');
 $itens = [];
+
 if ($busca !== '' || $cat !== '') {
     $like = '%' . $busca . '%';
     if ($cat !== '') {
+        $catInt = (int)$cat;
         $itens = db_query(
-            "SELECT TOP 40 TemplateID, Name, CategoryID, Attack, Defence, Agility, Luck, Level, Quality, NeedLevel
+            "SELECT TOP 40 TemplateID, Name, CategoryID, Attack, Defence, Agility, Luck, Level, Quality
              FROM Db_Tank41.dbo.Shop_Goods
-             WHERE (Name LIKE ? OR CAST(TemplateID AS varchar(20)) = ?) AND (? = '' OR CategoryID = ?)
+             WHERE (Name LIKE ? OR CAST(TemplateID AS varchar(20)) = ?) AND CategoryID = ?
              ORDER BY Attack DESC, TemplateID",
-            [$like, $busca, $cat, $cat === '' ? 0 : $cat]
+            [$like, $busca, $catInt]
         );
     } else {
         $itens = db_query(
-            "SELECT TOP 40 TemplateID, Name, CategoryID, Attack, Defence, Agility, Luck, Level, Quality, NeedLevel
+            "SELECT TOP 40 TemplateID, Name, CategoryID, Attack, Defence, Agility, Luck, Level, Quality
              FROM Db_Tank41.dbo.Shop_Goods
              WHERE Name LIKE ? OR CAST(TemplateID AS varchar(20)) = ?
              ORDER BY Attack DESC, TemplateID",
@@ -198,8 +250,8 @@ if ($ok)   painel_aviso($ok, 'bom');
   <select name="cat">
     <option value="">qualquer categoria</option>
     <?php
-    $cats = db_query("SELECT ID, Name FROM Db_Tank41.dbo.Shop_Goods_Categorys ORDER BY ID");
-    $selCat = (string)$cat;
+    $cats     = db_query("SELECT ID, Name FROM Db_Tank41.dbo.Shop_Goods_Categorys ORDER BY ID");
+    $selCat   = (string)$cat;
     foreach ($cats as $c) {
         $id = (int)$c['ID'];
         echo '<option value="' . $id . '"' . ($selCat === (string)$id ? ' selected' : '') . '>'
@@ -234,6 +286,7 @@ if ($ok)   painel_aviso($ok, 'bom');
 <hr>
 <h2>Inventario de <?= e($conta['NickName']) ?> <small>nivel <?= (int)$conta['Grade'] ?></small></h2>
 
+<?php if (admin_pode_escrever()): ?>
 <form method="post" class="card linha">
   <?= csrf_campo() ?>
   <input type="hidden" name="acao" value="conceder">
@@ -250,6 +303,7 @@ if ($ok)   painel_aviso($ok, 'bom');
   <label>Qtd <input type="number" name="qtd" value="1" min="1" max="9999"></label>
   <button type="submit">Conceder</button>
 </form>
+<?php endif; ?>
 
 <table class="lista">
   <tr><th>ItemID</th><th>Bolsa</th><th>Slot</th><th>Item</th><th>Qtd</th><th>+Forja</th><th></th></tr>

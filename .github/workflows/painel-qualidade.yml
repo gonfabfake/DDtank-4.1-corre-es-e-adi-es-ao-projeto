@@ -1,0 +1,21 @@
+name: Validar painel administrativo
+on:
+  pull_request:
+    paths:
+      - 'Web/painel/**'
+      - '.github/workflows/painel-qualidade.yml'
+  workflow_dispatch:
+
+jobs:
+  sintaxe-e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar sintaxe PHP do painel
+        run: |
+          find Web/painel -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Validar sintaxe JavaScript
+        run: node --check Web/painel/assets/app.js
+      - name: Smoke test modo espelho
+        run: |
+          php -r 'require "Web/painel/_imgconfig.php"; if (img_config_padrao()["modo"] !== "espelho" || img_config_ler()["modo"] !== "espelho") {fwrite(STDERR, "Modo espelho invalido\n"); exit(1);} echo "Modo espelho OK\n";'

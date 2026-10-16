@@ -78,7 +78,9 @@ curl_setopt_array($ch, [
     CURLOPT_TIMEOUT        => 15,
     CURLOPT_FOLLOWLOCATION => false,      // nao segue redirect para fora do host
     CURLOPT_USERAGENT      => 'Mozilla/5.0 painel-ddt',
-    CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+    // http e https: bloqueia file://, ftp://, gopher:// etc.
+    // (HTTP-only quebraria espelhos locais e resources em http)
+    CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS | CURLPROTO_HTTP,
 ]);
 $body  = curl_exec($ch);
 $code  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -1,4 +1,9 @@
 <?php
+// Keep PHP sessions and Flash resources on one local origin.
+if (isset($_SERVER['HTTP_HOST']) && strtolower($_SERVER['HTTP_HOST']) === 'localhost') {
+    header('Location: http://127.0.0.1' . ($_SERVER['REQUEST_URI'] ?? '/'), true, 307);
+    exit;
+}
 
 $conn                      = null;
 $c_host                    = '127.0.0.1';

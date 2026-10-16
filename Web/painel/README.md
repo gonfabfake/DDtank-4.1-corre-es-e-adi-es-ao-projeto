@@ -131,3 +131,26 @@ Quando estiver com o ambiente Windows:
 - [`SEGURANCA-SQL.md`](../../SEGURANCA-SQL.md) — restrições de acesso ao banco.
 
 Este documento descreve a versão do painel da branch de manutenção de outubro de 2026. A integração na branch principal deve ocorrer apenas depois da revisão dos testes e da verificação no servidor Windows.
+
+
+## Diagnóstico quando as imagens continuam ausentes — patch v3
+
+Se o item mostra o SVG genérico em vez do ícone real:
+
+1. No PC servidor, abra `http://127.0.0.1/painel/` e entre na aba **Imagens**.
+2. Localize no catálogo ou inventário o **TemplateID** do item que falha.
+3. No cartão **Diagnóstico de imagem por item (SQL + cache + rede)**, informe o TemplateID e clique em **Diagnosticar imagem**.
+4. O diagnóstico consulta **somente leitura** o registro em `Db_Tank41.dbo.Shop_Goods`. Apresenta `Pic`, `CategoryID` e os caminhos montados pela função `img_candidatos_item()`.
+5. Confira os resultados: `disponivel_no_cache`, `imagem_remota`, `falha_remota`, `erro_ao_consultar` ou `base_nao_configurada`. O painel testa no máximo **duas** imagens externas por diagnóstico.
+6. Verifique se a URL base foi configurada, se o host resolve no Windows e se o recurso efetivamente responde com PNG/JPEG/GIF/WebP. **Não substitua Pic por TemplateID sem conferir a linha do SQL.**
+
+O `img.php` agora procura nesta ordem:
+- `Web/painel/resource/<caminho>` — cache próprio do painel;
+- `ResourceCache/<SHA-256("image/" + caminho)>` — cache gerado pelo `Web/asset.php` durante carregamentos do jogo;
+- URL remota configurada no painel, usando `/image/` quando a base contém somente o host.
+
+O cache compartilhado **não significa** que todos os itens estão disponíveis. Ele só atende aos caminhos já solicitados e guardados pelo cliente; caso o CDN externo falhe, itens nunca cacheados continuam sem imagem. A chave hash é exatamente a usada pelo `Web/asset.php`, e os arquivos são validados como imagens antes do envio.
+
+Se houver `erro_ao_consultar`, consulte a mensagem mostrada no diagnóstico (DNS, protocolo, endereço privado ou falha cURL). Se a resposta for `falha_remota` com HTTP 404, experimente uma outra categoria ou chave `Pic` obtida **da mesma linha do banco**. Se o cache estiver ausente, acesse um trecho do jogo que carregue aquele ícone para testar se o cliente chega a baixá-lo; isso não substitui a existência do recurso upstream.
+
+**Atenção:** a URL `https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png` ainda não tem disponibilidade comprovada por esta auditoria. O endpoint de diagnóstico permite verificá-la **a partir da sua máquina Windows**, que pode ter DNS/rede diferentes. Evite apresentar êxito apenas porque os testes unitários passaram.

@@ -92,6 +92,30 @@ form.inline { display: inline; }
 td .nao { color: var(--fraco); }
 
 .mini { font-size: 11px; color: var(--fraco); }
+
+/* Abas */
+.abas { display: flex; gap: 4px; margin: 14px 0 18px; flex-wrap: wrap; border-bottom: 1px solid var(--linha); }
+.abas a {
+  color: var(--fraco); text-decoration: none; padding: 8px 14px;
+  border: 1px solid transparent; border-bottom: 0;
+  border-radius: 6px 6px 0 0; margin-bottom: -1px; font-weight: 600;
+}
+.abas a:hover { color: var(--txt); }
+.abas a.on { background: var(--painel); border-color: var(--linha); color: var(--destaque); }
+
+/* Tabela chave/valor */
+table.kv { width: 100%; border-collapse: collapse; }
+table.kv td { padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--linha); }
+table.kv td:first-child { color: var(--fraco); width: 52%; }
+table.kv td:last-child { text-align: right; }
+table.kv small { color: var(--fraco); font-size: 11px; }
+
+/* Aviso que carrega uma lista */
+.aviso ul { margin: 8px 0 0; padding-left: 20px; }
+.aviso li { margin: 3px 0; }
+
+.barra.busca { max-width: 620px; }
+.barra.links { margin-left: auto; }
 .nota { color: var(--fraco); font-size: 12px; }
 .nota a { color: var(--destaque); }
 code { background: #10131a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #9ad0ff; }

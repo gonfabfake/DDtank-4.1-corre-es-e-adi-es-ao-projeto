@@ -169,8 +169,8 @@ painel_cabecalho('Conta');
 <?php elseif ($abaAtual === 'itens'):
     $itens = db_query(
         "SELECT g.ItemID, g.BagType, g.Place, g.TemplateID, g.Count, g.StrengthenLevel,
-                g.StrengthenExp, g.QualityOverride = NULL, g.IsBinds, g.IsGold,
-                s.Name, s.CategoryID, s.Attack, s.Defence, s.Agility, s.Luck, s.Quality, s.Hole
+                g.StrengthenExp, g.IsBinds, g.IsGold,
+                s.Name, s.CategoryID, s.Attack, s.Defence, s.Agility, s.Luck, s.Quality
          FROM Db_Tank41.dbo.Sys_Users_Goods g
          LEFT JOIN Db_Tank41.dbo.Shop_Goods s ON s.TemplateID = g.TemplateID
          WHERE g.UserID = ? AND g.IsExist = 1

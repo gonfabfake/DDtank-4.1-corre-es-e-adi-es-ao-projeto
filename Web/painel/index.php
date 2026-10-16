@@ -157,7 +157,8 @@ if ($ok)   painel_aviso($ok, 'bom');
     <td><?= numero_br($c['Money']) ?></td>
     <td><?= $c['Ativo'] ? '<span class="tag sim">' . e($c['Papel']) . '</span>' : '<span class="nao">-</span>' ?></td>
     <td><?= $c['EhChatAdmin'] ? '<span class="tag sim">sim</span>' : '<span class="nao">-</span>' ?></td>
-    <td><a href="?u=<?= (int)$c['UserID'] ?>&amp;q=<?= e($filtro) ?>">editar</a></td>
+    <td><a href="conta.php?q=<?= urlencode((string)$c['NickName']) ?>">ficha</a>
+        <a href="index.php?u=<?= (int)$c['UserID'] ?>&amp;q=<?= e($filtro) ?>">editar</a></td>
   </tr>
   <?php endforeach; ?>
 </table>

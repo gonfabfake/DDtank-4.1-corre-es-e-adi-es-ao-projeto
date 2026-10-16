@@ -71,7 +71,7 @@ foreach ($s in $svcs) {
     $d = Join-Path $s.Dir $sub
     if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
   }
-  $p = Start-Process -FilePath $exePath -ArgumentList '--start' -WorkingDirectory $s.Dir -WindowStyle Minimized -PassThru
+  $p = Start-Process -FilePath $exePath -ArgumentList '--start' -WorkingDirectory $s.Dir -WindowStyle Hidden -PassThru
   Write-Output "$($s.Name): iniciado pid=$($p.Id)"
   if ($s.Name -eq 'Center')   { Start-Sleep -Seconds 12 }
   if ($s.Name -eq 'Fighting') { Start-Sleep -Seconds 5 }

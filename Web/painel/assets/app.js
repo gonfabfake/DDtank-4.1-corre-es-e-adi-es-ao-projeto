@@ -671,6 +671,108 @@ function ViewItens({ avisar }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Resource online de imagens                                          */
+/* ------------------------------------------------------------------ */
+function ViewImagens({ avisar }) {
+  const [cfg, setCfg] = useState((window.BOOT && window.BOOT.img) || { base: '', modo: 'padrao', mostrar: 1 });
+  const [modelos, setModelos] = useState({});
+  const [teste, setTeste] = useState(null);
+  const [tpl, setTpl] = useState('arm/{id}/00.png');
+  const [id, setId] = useState('71843');
+  const [amostra, setAmostra] = useState([]);
+
+  useEffect(() => {
+    api('imgconfig').then(d => {
+      setCfg(d.cfg); setModelos(d.modelos);
+      setTpl(d.modelos['7'] || 'arm/{id}/00.png');
+    }).catch(e => avisar('erro', e.message));
+  }, [avisar]);
+
+  useEffect(() => {
+    api('catalogo', { q: '' }).then(d => setAmostra(d.itens.slice(0, 12))).catch(() => {});
+  }, []);
+
+  const salvar = async () => {
+    try {
+      const r = await api('acao', { acao: 'imgconfig', base: cfg.base, modo: cfg.modo, mostrar: cfg.mostrar ? 1 : 0 }, 'POST');
+      BOOT.img = r.cfg || BOOT.img;
+      avisar('bom', 'Configuracao salva. Recarregue a pagina (F5) para aplicar em todas as telas.');
+    } catch (e) { avisar('erro', e.message); }
+  };
+
+  const testar = async () => {
+    setTeste({ rodando: true });
+    try {
+      const r = await api('imgteste', { base: cfg.base, tpl, id });
+      setTeste(r);
+    } catch (e) { setTeste({ erro: e.message }); avisar('erro', e.message); }
+  };
+
+  return html`
+    <div className="grade">
+      <${Card} titulo="Resource online">
+        <div className="edit">
+          <${Campo} label="URL base" dica="termina com / — ex.: https://cdn.exemplo.com/ddt/">
+            <input value=${cfg.base} placeholder="https://..."
+                   onChange=${e => setCfg({ ...cfg, base: e.target.value })}/>
+          <//>
+          <${Campo} label="Modo do caminho">
+            <select value=${cfg.modo} onChange=${e => setCfg({ ...cfg, modo: e.target.value })}>
+              <option value="padrao">padrao — convencao do jogo (equip/.../icon_1.png)</option>
+              <option value="template">template — {TemplateID}.png</option>
+              <option value="pic">pic — Shop_Goods.Pic + .png</option>
+            </select>
+          <//>
+          <button className="primario" onClick=${salvar}>Salvar</button>
+        </div>
+        <p className="mini">
+          Vazio = usa so o SVG gerado. O SVG continua sendo o fallback automatico:
+          se a URL falhar, o icone volta a ser desenhado.
+        </p>
+      <//>
+
+      <${Card} titulo="Testar a URL">
+        <div className="edit">
+          <${Campo} label="Modelo de caminho">
+            <input value=${tpl} onChange=${e => setTpl(e.target.value)}/>
+          <//>
+          <${Campo} label="TemplateID de teste">
+            <input value=${id} onChange=${e => setId(e.target.value)}/>
+          <//>
+          <button onClick=${testar}>Testar</button>
+        </div>
+        ${teste ? (teste.rodando
+          ? html`<p className="mini">testando…</p>`
+          : teste.erro ? painel_aviso(teste.erro)
+          : html`<div className=${'aviso ' + (teste.achou ? 'bom' : 'erro')}>
+              <div className="mono">${teste.url}</div>
+              ${teste.achou
+                ? html`OK — ${teste.contentType}, ${teste.bytes} bytes`
+                : html`falhou — ${teste.motivo}`}
+            </div>`) : null}
+      <//>
+    </div>
+
+    <${Card} titulo="Previa">
+      <div className="itens grade-itens">
+        ${amostra.map(i => html`<${ItemCell} key=${i.template} it=${i}/>`)}
+      </div>
+    <//>
+
+    <${Card} titulo="Convencao de caminho por categoria">
+      <table className="tab">
+        <thead><tr><th>Categoria</th><th>Caminho relativo</th></tr></thead>
+        <tbody>${Object.entries(modelos).map(([c, p]) => html`
+          <tr key=${c}><td>${c} — ${CAT_NOME[c] || ''}</td><td className="mono">${p}</td></tr>`)}
+        </tbody>
+      </table>
+      <p className="mini">
+        Mesma convencao de <code>Web\function.php::loadimage()</code> (hoje morta no portal).
+      </p>
+    <//>`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Auditoria                                                           */
 /* ------------------------------------------------------------------ */
 function ViewAuditoria({ avisar }) {

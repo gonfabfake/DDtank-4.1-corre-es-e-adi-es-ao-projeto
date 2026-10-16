@@ -160,6 +160,7 @@ label.chk input { width: auto; margin: 0; accent-color: var(--acento); }
 .item.q5 { border-left: 3px solid #f59e0b; }
 .item.q6 { border-left: 3px solid #eab308; box-shadow: 0 0 0 1px rgba(234,179,8,.18) inset; }
 .ico { flex: none; border-radius: 7px; }
+.ico.img-on { object-fit: contain; background: #0d1016; border-radius: 7px; }
 .item-txt { min-width: 0; flex: 1; }
 .item-txt b { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item-txt small { display: block; font-size: 10.5px; }

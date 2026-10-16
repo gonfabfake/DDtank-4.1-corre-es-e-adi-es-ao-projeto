@@ -29,8 +29,10 @@ if (-not $Ip) {
 Info "IP local: $Ip"
 
 # --- 1) Binding do IIS ------------------------------------------------------
+# O IP do Wi-Fi muda com frequencia (DHCP). Para nao depender dele, o site
+# responde em QUALQUER IP local (binding curinga *:80:). O firewall continua
+# limitando o acesso a LocalSubnet.
 $siteName = 'Default Web Site'
-$bindingInfo = "${Ip}:80:"
 try {
   Add-Type -AssemblyName 'Microsoft.Web.Administration' -ErrorAction Stop
 } catch {
@@ -39,13 +41,38 @@ try {
 $sm = New-Object Microsoft.Web.Administration.ServerManager
 $site = $sm.Sites[$siteName]
 if (-not $site) { throw "Site do IIS '$siteName' nao encontrado." }
-$exists = $site.Bindings | Where-Object { $_.BindingInformation -eq $bindingInfo }
-if ($exists) {
-  Info "IIS: binding ja existe ($bindingInfo)"
-} else {
-  $site.Bindings.Add($bindingInfo, 'http') | Out-Null
-  $sm.CommitChanges()
-  Info "IIS: binding adicionado ($bindingInfo)"
+
+try {
+  $wildcard = '*:80:'
+  $hasWildcard = $site.Bindings | Where-Object { $_.BindingInformation -eq $wildcard }
+  if ($hasWildcard) {
+    Info 'IIS: binding curinga ja existe (*:80:)'
+  } else {
+    # remove o binding host-header 'localhost' (pode conflitar com o curinga)
+    $lh = $site.Bindings | Where-Object { $_.BindingInformation -eq '*:80:localhost' }
+    if ($lh) { $site.Bindings.Remove($lh) | Out-Null }
+    $site.Bindings.Add($wildcard, 'http') | Out-Null
+    $sm.CommitChanges()
+    Info 'IIS: binding curinga adicionado (*:80: responde em qualquer IP local)'
+  }
+} catch {
+  Info ('IIS: curinga falhou (' + $_.Exception.Message + '); usando binding do IP atual ' + $Ip)
+  if (-not ($site.Bindings | Where-Object { $_.BindingInformation -eq "${Ip}:80:" })) {
+    $site.Bindings.Add("${Ip}:80:", 'http') | Out-Null
+    $sm.CommitChanges()
+    Info "IIS: binding adicionado (${Ip}:80:)"
+  }
+}
+
+# limpeza: remove bindings de IPs que nao existem mais no PC (DHCP antigo)
+$aliveIps = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | ForEach-Object { $_.IPAddress })
+foreach ($b in @($site.Bindings | Where-Object { $_.BindingInformation -match '^([0-9.]+):80:$' })) {
+  $bip = [regex]::Match($b.BindingInformation, '^([0-9.]+):80:$').Groups[1].Value
+  if ($bip -ne '127.0.0.1' -and ($aliveIps -notcontains $bip)) {
+    $site.Bindings.Remove($b) | Out-Null
+    $sm.CommitChanges()
+    Info ("IIS: binding de IP morto removido (" + $bip + ":80:)")
+  }
 }
 $allB = ($site.Bindings | ForEach-Object { $_.BindingInformation }) -join ' | '
 Info ("IIS: bindings atuais -> " + $allB)

@@ -3,6 +3,7 @@
   <config>
     <FLASHSITE value="/flash/" />
     <BACKUP_FLASHSITE value="/flash/" />
+    <WEEKLYSITE value="/" />
     <USE_MD5 value="False" />
     <SITE value="/asset.php?path=" />
     <FIRSTPAGE value="/" />

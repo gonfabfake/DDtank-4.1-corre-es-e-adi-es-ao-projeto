@@ -129,7 +129,7 @@ function baseResource(base) {
   try {
     const url = new URL(base);
     return url.pathname === '/' || url.pathname === ''
-      ? url.origin + '/image/' : url.href.replace(/\\/?$/, '/');
+      ? url.origin + '/image/' : (url.href.endsWith('/') ? url.href : url.href + '/');
   } catch { return ''; }
 }
 function candidatosImagem(it, cfg = (window.BOOT && window.BOOT.img) || {}) {
@@ -142,6 +142,7 @@ function candidatosImagem(it, cfg = (window.BOOT && window.BOOT.img) || {}) {
   if (modelo.includes('equip/m/')) modelos.push(modelo.replace('equip/m/', 'equip/f/'));
   const paths = [];
   const adicionar = rel => {
+    if (rel && rel.startsWith('image/')) rel = rel.slice('image/'.length);
     if (rel && /^[a-zA-Z0-9_./-]{1,220}$/.test(rel) && !rel.includes('..')
         && !paths.includes(rel)) paths.push(rel);
   };

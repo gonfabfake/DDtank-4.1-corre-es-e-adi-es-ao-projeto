@@ -2,6 +2,7 @@
 
 const http = require('node:http');
 const net = require('node:net');
+const os = require('node:os');
 const { WebSocketServer, WebSocket } = require('ws');
 
 // Destination is fixed: clients can never pick a host, port or interface.
@@ -15,13 +16,44 @@ function ip4ToInt(ip) {
 }
 const LOOPBACK_START = ip4ToInt('127.0.0.0');
 const LOOPBACK_END = ip4ToInt('127.255.255.255');
-const LAN_START = ip4ToInt('192.168.3.0');
-const LAN_END = ip4ToInt('192.168.3.255');
+
+// Allowed peers: loopback + every IPv4 subnet this machine currently owns
+// (Wi-Fi/LAN adapters). Rebuilt at startup, so DHCP IP changes just work.
+// DDTANK_PROXY_ALLOW can add extra IPs/CIDRs (comma-separated) when needed.
+function buildAllowedRanges() {
+  const ranges = [{ start: LOOPBACK_START, end: LOOPBACK_END, label: 'loopback' }];
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    for (const a of addrs || []) {
+      if (a.family !== 'IPv4' || a.internal) continue;
+      const ipInt = ip4ToInt(a.address);
+      if (ipInt < 0) continue;
+      const prefixRaw = a.cidr ? Number(String(a.cidr).split('/')[1]) : NaN;
+      const prefix = Number.isInteger(prefixRaw) && prefixRaw >= 8 && prefixRaw <= 32 ? prefixRaw : 24;
+      const mask = prefix >= 32 ? 0xffffffff : ((~0 << (32 - prefix)) >>> 0);
+      const start = (ipInt & mask) >>> 0;
+      ranges.push({ start, end: (start | (~mask >>> 0)) >>> 0, label: a.address + '/' + prefix });
+    }
+  }
+  for (const item of String(process.env.DDTANK_PROXY_ALLOW || '').split(',')) {
+    const s = item.trim();
+    if (!s) continue;
+    const [ip, pRaw] = s.split('/');
+    const ipInt = ip4ToInt(ip);
+    if (ipInt < 0) continue;
+    const prefixRaw = pRaw ? Number(pRaw) : 32;
+    const prefix = Number.isInteger(prefixRaw) && prefixRaw >= 8 && prefixRaw <= 32 ? prefixRaw : 32;
+    const mask = prefix >= 32 ? 0xffffffff : ((~0 << (32 - prefix)) >>> 0);
+    const start = (ipInt & mask) >>> 0;
+    ranges.push({ start, end: (start | (~mask >>> 0)) >>> 0, label: s + ' (env)' });
+  }
+  return ranges;
+}
+const ALLOWED_RANGES = buildAllowedRanges();
 
 function isLocalV4(ip) {
   const n = ip4ToInt(ip);
   if (n < 0) return false;
-  return (n >= LOOPBACK_START && n <= LOOPBACK_END) || (n >= LAN_START && n <= LAN_END);
+  return ALLOWED_RANGES.some(r => n >= r.start && n <= r.end);
 }
 
 function peerAddress(raw) {
@@ -99,7 +131,8 @@ server.on('error', error => {
 });
 // Listen on every interface: loopback for the PC, LAN for the phone.
 server.listen(8765, () => {
-  console.log(`Ruffle proxy: ws://<host>:8765/game -> ${DEST_HOST}:${DEST_PORT} (loopback + 192.168.3.0/24)`);
+  const allowed = ALLOWED_RANGES.map(r => r.label).join(', ');
+  console.log(`Ruffle proxy: ws://<host>:8765/game -> ${DEST_HOST}:${DEST_PORT} (allowed: ${allowed})`);
 });
 
 function shutdown() {

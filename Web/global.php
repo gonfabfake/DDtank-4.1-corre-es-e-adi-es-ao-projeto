@@ -7,10 +7,12 @@ if (isset($_SERVER['HTTP_HOST']) && strtolower($_SERVER['HTTP_HOST']) === 'local
 
 $conn                      = null;
 $c_host                    = '127.0.0.1';
-$config['UID']             = 'sa';
-$config['PWD']             = '123456';
-$config['Database']        = 'Db_Membership';
-$config['CharacterSet']    = 'UTF-8';
+
+// Credenciais do banco FORA do docroot (C:\DDTank4.1-main\secrets\db.php),
+// usando um login com menos privilegios (ddt_web) em vez do 'sa'.
+// A constante abaixo satisfaz a guarda anti-acesso-direto do arquivo.
+define('DDT_CREDENTIALS_LOADED', true);
+$config                    = require __DIR__ . '/../secrets/db.php';
 $dbtank					   = 'Db_Tank';
 $dbtank41				   = 'Db_Tank41';
 $dbmembership			   = 'Db_Membership';

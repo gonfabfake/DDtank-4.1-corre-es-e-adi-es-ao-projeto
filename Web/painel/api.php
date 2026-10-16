@@ -255,26 +255,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
     if ($acao === 'imgderivar') {
         $url = trim((string)($_POST['url'] ?? ''));
         $id = (string)($_POST['id'] ?? '');
-        if ($url === '' || strlen($url) > 2000
-            || !preg_match('~^[0-9]{1,10}$~D', $id)) falha('URL ou TemplateID invalido.', 400);
-        $parts = parse_url($url);
-        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
-            || isset($parts['query']) || isset($parts['fragment'])
-            || isset($parts['user']) || isset($parts['pass'])) {
-            falha('Use uma URL direta de imagem, sem parametros ou credenciais.', 400);
-        }
-        $path = (string)($parts['path'] ?? '');
-        // Substitui apenas ID numerico integral, preservando todos os diretorios.
-        $tpl = preg_replace('~(?<![0-9])' . preg_quote($id, '~') . '(?![0-9])~',
-            '{id}', $path, 1, $substituicoes);
-        if ($substituicoes !== 1 || !is_string($tpl)) {
-            falha('O caminho deve conter o TemplateID exato.', 400);
-        }
-        $tpl = ltrim($tpl, '/');
-        if ($tpl === '' || strlen($tpl) > 250 || str_contains($tpl, '..')
-            || !preg_match('~^[a-zA-Z0-9_./{}-]+$~D', $tpl)
-            || !preg_match('~\\.(png|jpg|jpeg|gif|webp)$~iD', $tpl)) {
-            falha('Caminho de imagem nao suportado.', 400);
+        try {
+            $deducao = img_derivar_template($url, $id);
+            $base = $deducao['base'];
+            $tpl = $deducao['template'];
+        } catch (Throwable $e) {
+            falha($e->getMessage(), 400);
         }
         try {
             $res = img_consulta_publica($url);
@@ -283,8 +269,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $a === 'acao') {
                     'contentType' => $res['contentType'], 'motivo' =>
                     ($res['erro'] ?: 'HTTP ' . $res['status'] . ', ' . $res['contentType'])]);
             }
-            $porta = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
-            $base = strtolower($parts['scheme']) . '://' . $parts['host'] . $porta . '/';
             $cfg = img_config_gravar(['base' => $base, 'modo' => 'espelho',
                 'caminho' => 'custom', 'template_custom' => $tpl]);
         } catch (Throwable $e) {

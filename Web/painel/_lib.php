@@ -240,7 +240,8 @@ function numero_br(?string $n): string {
 function painel_cabecalho(string $titulo, string $aba = ''): void {
     $a = admin_dados();
     $nav = '';
-    foreach ([['index.php','Contas'],['itens.php','Itens'],['auditoria.php','Auditoria']] as [$url,$rot]) {
+    foreach ([['index.php','Contas'],['itens.php','Itens'],['auditoria.php','Auditoria'],
+              ['senha.php','Senha']] as [$url,$rot]) {
         $nav .= '<a class="' . ($aba === $url ? 'on' : '') . '" href="' . e($url) . '">' . e($rot) . '</a>';
     }
     echo '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'

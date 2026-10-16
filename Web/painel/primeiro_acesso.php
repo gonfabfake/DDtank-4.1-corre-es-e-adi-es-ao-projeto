@@ -89,11 +89,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 painel_cabecalho('Primeiro acesso');
-if (!token_disponivel()) {
+
+/* Ordem importa: num POST bem-sucedido o token JA foi consumido,
+   entao testar "token disponivel" primeiro esconderia a mensagem de sucesso. */
+if ($ok) {
+    painel_aviso($ok, 'bom');
+    echo '<p><a href="entrar.php">Ir para o login &rarr;</a></p>';
+} elseif ($erro) {
+    painel_aviso($erro);
+} elseif (!token_disponivel()) {
     painel_aviso('Nenhum token disponivel. Rode novamente o script que gera o token.', 'aviso');
-} else {
-    if ($erro) painel_aviso($erro);
-    if ($ok)   painel_aviso($ok, 'bom');
 }
 ?>
 <form method="post" class="card">

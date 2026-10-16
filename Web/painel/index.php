@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $erro = 'Conta nao encontrada.';
         } else {
             try {
-                db_exec('BEGIN TRAN');
+                db_tx('BEGIN TRAN');
 
                 /* ---- nivel: grava GP oficial da faixa ---- */
                 if ($acao === 'nivel') {
@@ -102,9 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                if ($erro) db_exec('ROLLBACK TRAN'); else db_exec('COMMIT TRAN');
+                if ($erro) db_tx('ROLLBACK TRAN'); else db_tx('COMMIT TRAN');
             } catch (Throwable $ex) {
-                try { db_exec('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
+                try { db_tx('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
                 $erro = $ex->getMessage();
             }
         }

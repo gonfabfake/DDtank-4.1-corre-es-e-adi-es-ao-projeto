@@ -34,18 +34,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $erro = 'Senha atual incorreta.';
             } else {
                 try {
-                    db_exec('BEGIN TRAN');
+                    db_tx('BEGIN TRAN');
                     db_exec("UPDATE Db_Membership.dbo.Mem_UserInfo SET Password = ? WHERE UserId = ?",
                             [strtoupper(md5($nova)), $portal['UserId']]);
                     db_exec("UPDATE Db_Tank41.dbo.Sys_Users_Detail SET Password = ? WHERE UserID = ?",
                             [strtoupper(md5($nova)), $adm['UserID']]);
-                    db_exec('COMMIT TRAN');
+                    db_tx('COMMIT TRAN');
                     db_exec("INSERT INTO Db_Tank41.dbo.Admin_Auditoria (AdminID, AdminNome, Acao, Detalhe, IP)
                              VALUES (?, ?, 'trocar_senha', 'senha alterada', ?)",
                             [$adm['UserID'], $adm['UserName'], painel_ip_cliente()]);
                     $ok = 'Senha alterada. Ela passa a valer tambem no portal.';
                 } catch (Throwable $ex) {
-                    try { db_exec('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
+                    try { db_tx('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
                     $erro = $ex->getMessage();
                 }
             }

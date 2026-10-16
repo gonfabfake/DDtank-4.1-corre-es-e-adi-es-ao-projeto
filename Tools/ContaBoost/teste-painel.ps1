@@ -72,7 +72,7 @@ $r = Invoke-WebRequest "$base/index.php" -WebSession $s2 -UseBasicParsing -Metho
 $money = (sqlcmd -S . -E -d Db_Tank41 -h -1 -W -Q "SET NOCOUNT ON; SELECT Money FROM Sys_Users_Detail WHERE UserID=$uid;" | Select-Object -First 1).Trim()
 Check 'cupons gravados' ($money -eq '123456') "Money=$money"
 
-Write-Host "`n=== 7. Conceder item ===" -ForegroundAction Cyan
+Write-Host "`n=== 7. Conceder item ===" -ForegroundColor Cyan
 $antes = (sqlcmd -S . -E -d Db_Tank41 -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM Sys_Users_Goods WHERE UserID=$uid AND IsExist=1;" | Select-Object -First 1).Trim()
 $r = Invoke-WebRequest "$base/itens.php?u=$uid" -WebSession $s2 -UseBasicParsing
 $r = Invoke-WebRequest "$base/itens.php" -WebSession $s2 -UseBasicParsing -Method Post `

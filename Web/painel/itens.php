@@ -148,7 +148,7 @@ function conceder_item(int $userID, int $templateID, int $bagType, int $place, i
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && admin_pode_escrever()) {
     csrf_validar();
     try {
-        db_exec('BEGIN TRAN');
+        db_tx('BEGIN TRAN');
         $acao = (string)($_POST['acao'] ?? '');
 
         if ($acao === 'conceder') {
@@ -191,9 +191,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && admin_pode_escrever()) {
             auditoria('remover_item', $userID, "ItemID=$itemID");
         }
 
-        if ($erro) db_exec('ROLLBACK TRAN'); else db_exec('COMMIT TRAN');
+        if ($erro) db_tx('ROLLBACK TRAN'); else db_tx('COMMIT TRAN');
     } catch (Throwable $ex) {
-        try { db_exec('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
+        try { db_tx('ROLLBACK TRAN'); } catch (Throwable $ignore) {}
         $erro = $ex->getMessage();
     }
 }

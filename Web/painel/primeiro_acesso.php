@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         elseif (!$jogo)    $erro = 'Conta nao encontrada no jogo.';
         else {
             try {
-                db_exec("BEGIN TRAN");
+                db_tx("BEGIN TRAN");
                 // Formato de senha do site: MD5 em maiusculas, sem salt.
                 db_exec(
                     "UPDATE Db_Membership.dbo.Mem_UserInfo
@@ -75,13 +75,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                     $msg .= 'Conta promovida a admin do painel.';
                 }
-                db_exec("COMMIT TRAN");
+                db_tx("COMMIT TRAN");
 
                 // Consome o token: uso unico.
                 @file_put_contents(TOKEN_FILE, '');
                 $ok = $msg . ' Agora faca login em entrar.php. Este token nao funciona de novo.';
             } catch (Throwable $ex) {
-                try { db_exec("ROLLBACK TRAN"); } catch (Throwable $ignore) {}
+                try { db_tx("ROLLBACK TRAN"); } catch (Throwable $ignore) {}
                 $erro = 'Falha ao gravar: ' . $ex->getMessage();
             }
         }

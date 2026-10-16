@@ -116,46 +116,66 @@ const PATHS = {
   14:'necklace/{id}/icon.png',     15:'equip/wing/{id}/icon.png',
   16:'specialprop/chatBall/{id}/icon.png', 17:'equip/offhand/{id}/icon.png',
   19:'prop/{id}/icon.png', 20:'prop/{id}/icon.png',
-  34:'prop/{id}/icon.png', 35:'unfrightprop/{id}/icon.png',
+  34:'unfrightprop/{id}/icon.png', 35:'unfrightprop/{id}/icon.png',
   50:'petequip/arm/{id}/icon.png', 51:'petequip/hat/{id}/icon.png',
   52:'petequip/cloth/{id}/icon.png',
 };
 
-/* URL da imagem.
-   modo `espelho`: passa pelo img.php, que serve da pasta resource/ e,
-   se nao houver copia, busca na resource online, espelha e devolve.
-   Os outros modos apontam direto para a base configurada. */
-function urlImagem(it) {
-  const cfg = (window.BOOT && window.BOOT.img) || {};
-  if (!cfg.base) return null;
-  const id = it.template;
-  let rel;
-  if (cfg.modo === 'espelho') {
-    if (cfg.caminho === 'template') rel = id + '.png';
-    else if (cfg.caminho === 'pic') rel = (it.pic ? it.pic + '.png' : null);
-    else if (cfg.caminho === 'custom' && cfg.template_custom) rel = cfg.template_custom.replace('{id}', id);
-    else { const t = PATHS[it.cat] || PATHS[19]; rel = t.replace('{id}', id); }
-    if (!rel) return null;
-    return 'img.php?p=' + encodeURIComponent(rel);
-  }
-  if (cfg.modo === 'template') return cfg.base + id + '.png';
-  if (cfg.modo === 'pic')      return it.pic ? cfg.base + it.pic + '.png' : null;
-  const t = PATHS[it.cat] || PATHS[19];
-  return cfg.base + t.replace('{id}', id);
+/* A resource remota usa /image/<categoria>/<Pic>/icon.png.
+   Se o campo Pic nao resolver, tentamos TemplateID; para roupas, m/f.
+   A base ja contendo /image/ nao recebe o prefixo duas vezes. */
+function baseResource(base) {
+  if (!base) return '';
+  try {
+    const url = new URL(base);
+    return url.pathname === '/' || url.pathname === ''
+      ? url.origin + '/image/' : url.href.replace(/\\/?$/, '/');
+  } catch { return ''; }
 }
+function candidatosImagem(it, cfg = (window.BOOT && window.BOOT.img) || {}) {
+  if (!cfg.base) return [];
+  const pic = String(it.pic || '').trim();
+  const id = String(it.template || '').trim();
+  const chaves = [...new Set([pic, id].filter(v => /^[a-zA-Z0-9_-]{1,128}$/.test(v)))];
+  const modelo = PATHS[it.cat] || PATHS[19];
+  const modelos = [modelo];
+  if (modelo.includes('equip/m/')) modelos.push(modelo.replace('equip/m/', 'equip/f/'));
+  const paths = [];
+  const adicionar = rel => {
+    if (rel && /^[a-zA-Z0-9_./-]{1,220}$/.test(rel) && !rel.includes('..')
+        && !paths.includes(rel)) paths.push(rel);
+  };
+  // Um modelo personalizado e valido apenas quando realmente tem a chave esperada.
+  if (cfg.modo === 'espelho' && cfg.caminho === 'custom' && cfg.template_custom) {
+    for (const chave of chaves) adicionar(cfg.template_custom.replace('{id}', chave));
+  }
+  if (cfg.modo === 'template' || (cfg.modo === 'espelho' && cfg.caminho === 'template')) {
+    adicionar(id + '.png');
+  }
+  if (cfg.modo === 'pic' || (cfg.modo === 'espelho' && cfg.caminho === 'pic')) {
+    if (pic) adicionar(pic + '.png');
+  }
+  for (const chave of chaves) {
+    for (const pattern of modelos) adicionar(pattern.replace('{id}', chave));
+  }
+  if (cfg.modo === 'espelho') return paths.map(rel => 'img.php?p=' + encodeURIComponent(rel));
+  const base = baseResource(cfg.base);
+  return base ? paths.map(rel => base + rel) : [];
+}
+function urlImagem(it) { return candidatosImagem(it)[0] || null; }
 
-/* Imagem online com fallback para o SVG gerado. */
+/* Tenta os arquivos candidatos antes de recorrer ao SVG.
+   Nao reutiliza URL com erro entre linhas ou novos produtos. */
 function ItemImg({ it, size = 44 }) {
-  const [falhou, setFalhou] = React.useState(false);
+  const [indice, setIndice] = React.useState(0);
   const cfg = (window.BOOT && window.BOOT.img) || {};
-  const url = urlImagem(it);
-  const usarOnline = url && !falhou && cfg.base;
-
-  if (usarOnline) {
-    return html`<img className="ico img-on" src=${url} width=${size} height=${size}
+  const urls = candidatosImagem(it, cfg);
+  React.useEffect(() => setIndice(0), [it.template, it.pic, it.cat, cfg.base, cfg.modo, cfg.caminho, cfg.template_custom]);
+  if (indice < urls.length) {
+    return html`<img className="ico img-on" src=${urls[indice]} width=${size} height=${size}
         loading="lazy" decoding="async"
         alt=${it.nome || ('item ' + it.template)}
-        onError=${() => setFalhou(true)} />`;
+        onError=${() => setIndice(n => n + 1)} />`;
   }
   return html`<${ItemIcon} cat=${it.cat} q=${it.q} size=${size}/>`;
 }

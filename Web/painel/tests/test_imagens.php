@@ -26,4 +26,10 @@ rejeita(static fn() => img_derivar_template('https://cdn.exemplo.com/arm/71843/0
     'URL com query');
 rejeita(static fn() => img_curl_seguro('http://127.0.0.1/admin.png'), 'destino loopback');
 rejeita(static fn() => img_curl_seguro('http://169.254.169.254/latest/'), 'destino link local');
+
+$exemploNomeado = 'https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png';
+rejeita(static fn() => img_derivar_template($exemploNomeado, '71843'),
+    'URL com guidname nao vira template numerico');
+confere(str_contains(parse_url($exemploNomeado, PHP_URL_PATH), '/image/unfrightprop/guidname/icon.png'),
+    'caminho de referencia preservado integralmente');
 echo "Testes locais do painel concluidos.\n";

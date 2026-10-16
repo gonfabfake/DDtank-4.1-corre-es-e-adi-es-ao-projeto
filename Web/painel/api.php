@@ -183,8 +183,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             db_query($sql, [$q, $like, $q, $catInt, $catInt]))]);
     }
 
+    /* Descobre o padrão de caminho da resource testando varios candidatos. */
+    if ($a === 'imgdescobrir') {
+        $base = rtrim((string)($_GET['base'] ?? ''), '/') . '/';
+        $id   = (string)($_GET['id'] ?? '71843');
+        $pic  = (string)($_GET['pic'] ?? '');
+        $cands = [
+            "arm/$id/00.png", "equip/m/cloth/$id/icon_1.png", "equip/m/head/$id/icon_1.png",
+            "equip/m/hair/$id/icon_1.png", "equip/m/face/$id/icon_1.png",
+            "equip/armlet/$id/icon.png", "equip/ring/$id/icon.png",
+            "equip/m/suits/$id/icon_1.png", "necklace/$id/icon.png",
+            "unfrightprop/$id/icon.png", "prop/$id/icon.png",
+            "petequip/arm/$id/icon.png", "petequip/cloth/$id/icon.png", "petequip/hat/$id/icon.png",
+            "image/arm/$id/00.png", "image/equip/m/cloth/$id/icon_1.png",
+            "$id.png", "image/$id.png", "item/$id.png", "shop/$id.png",
+        ];
+        if ($pic !== '') array_push($cands, "$pic.png", "image/$pic.png", "item/$pic.png", "icon/$pic.png");
+
+        $achados = []; $testados = 0;
+        foreach ($cands as $rel) {
+            $testados++;
+            $ch = curl_init($base . $rel);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_TIMEOUT=>8,
+                CURLOPT_FOLLOWLOCATION=>false, CURLOPT_USERAGENT=>'Mozilla/5.0 painel-ddt',
+                CURLOPT_NOBODY=>true, CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS]);
+            curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $ct   = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            curl_close($ch);
+            if ($code === 200 && stripos($ct, 'image/') === 0) $achados[] = $rel;
+            if (count($achados) >= 5) break;
+        }
+        responder(['ok' => true, 'base' => $base, 'testados' => $testados, 'achados' => $achados]);
+    }
+
     if ($a === 'imgconfig') {
         responder(['ok' => true, 'cfg' => img_config_ler(), 'modelos' => img_caminhos()]);
+    }
+
+    if ($a === 'imgcache') {
+        $dir = __DIR__ . '/resource';
+        $n = 0; $bytes = 0;
+        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach ($it as $f) { if ($f->isFile()) { $n++; $bytes += $f->getSize(); } }
+        responder(['ok' => true, 'arquivos' => $n, 'bytes' => $bytes,
+                   'pasta' => 'C:\\DDTank4.1-main\\Web\\painel\\resource']);
     }
 
     if ($a === 'auditoria') {

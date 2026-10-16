@@ -121,12 +121,22 @@ const PATHS = {
   52:'petequip/cloth/{id}/icon.png',
 };
 
-/* URL da resource online. BOOT.img = {base, modo, mostrar}
-   modo: padrao (convencao do jogo) | template (id.png) | pic (chave.png) */
+/* URL da imagem.
+   modo `espelho`: passa pelo img.php, que serve da pasta resource/ e,
+   se nao houver copia, busca na resource online, espelha e devolve.
+   Os outros modos apontam direto para a base configurada. */
 function urlImagem(it) {
   const cfg = (window.BOOT && window.BOOT.img) || {};
   if (!cfg.base) return null;
   const id = it.template;
+  let rel;
+  if (cfg.modo === 'espelho') {
+    if (cfg.caminho === 'template') rel = id + '.png';
+    else if (cfg.caminho === 'pic') rel = (it.pic ? it.pic + '.png' : null);
+    else { const t = PATHS[it.cat] || PATHS[19]; rel = t.replace('{id}', id); }
+    if (!rel) return null;
+    return 'img.php?p=' + encodeURIComponent(rel);
+  }
   if (cfg.modo === 'template') return cfg.base + id + '.png';
   if (cfg.modo === 'pic')      return it.pic ? cfg.base + it.pic + '.png' : null;
   const t = PATHS[it.cat] || PATHS[19];

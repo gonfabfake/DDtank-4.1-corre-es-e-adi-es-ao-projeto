@@ -576,8 +576,7 @@ function ViewContas({ avisar }) {
             <td>${c.Ativo ? html`<span className="tag verde">${c.Papel}</span>` : html`<span className="tag cinza">—</span>`}</td>
             <td>${c.ChatAdmin ? html`<span className="tag verde">sim</span>` : html`<span className="tag cinza">—</span>`}</td>
             <td className="mini">${dt(c.LastDate)}</td>
-            <td><a href=${`conta.php?q=${encodeURIComponent(c.NickName)}`}
-                  onClick=${e => e.preventDefault()}>ficha</a></td>
+            <td><a href="#ficha" onClick=${e => { e.preventDefault(); window.__irConta && window.__irConta(c.NickName); }}>ficha</a></td>
           </tr>`)}
         </tbody>
       </table>

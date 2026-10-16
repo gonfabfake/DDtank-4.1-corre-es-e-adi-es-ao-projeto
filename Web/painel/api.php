@@ -70,6 +70,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $d['LastDate']  = data_txt($d['LastDate']);
         $d['ForbidDate']= data_txt($d['ForbidDate']);
 
+        // Sys_Users_Detail nao tem estas colunas: vem de outras tabelas.
+        $admRow = db_um("SELECT Papel FROM Db_Tank41.dbo.Admin_Usuarios WHERE UserID = ? AND Ativo = 1", [$uid]);
+        $d['Papel']     = $admRow['Papel'] ?? null;
+        $d['ChatAdmin'] = (int) db_valor("SELECT COUNT(*) FROM Db_Tank41.dbo.Game_Commands WHERE UserID = ?", [$uid]) > 0;
+
         $itens = array_map('linha_item', db_query(
             "SELECT g.ItemID, g.BagType, g.Place, g.TemplateID, g.Count, g.StrengthenLevel,
                     s.Name, s.CategoryID, s.Attack, s.Defence, s.Agility, s.Luck, s.Quality, s.Pic

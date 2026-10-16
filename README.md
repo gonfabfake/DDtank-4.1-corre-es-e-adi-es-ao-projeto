@@ -78,6 +78,10 @@ Exemplo de formato informado para a resource:
 
 Na atualização do painel (branch da proposta de mudança), o leitor tenta primeiro `Pic`, depois `TemplateID`, preserva `/image/`, testa variações de sexo quando aplicável, e usa o SVG local caso nenhum recurso seja encontrado. **O nome `guidname` é apenas um exemplo de caminho:** não prova a correspondência de todos os itens. Consulte [o guia do painel](Web/painel/README.md) para diagnóstico e testes.
 
+### Diagnóstico adicional de imagens (patch v3)
+
+A aba **Imagens** inclui o diagnóstico por `TemplateID`, que consulta a linha de `Shop_Goods`, mostra `Pic` e `CategoryID`, verifica o cache próprio e o `ResourceCache` do jogo e registra o resultado HTTP de até duas URLs externas. Essa função identifica **por que** o ícone não aparece, mas não garante que o arquivo exista no CDN. Veja as instruções em [Web/painel/README.md](Web/painel/README.md).
+
 ## Build e controles do cliente Flash
 
 O cliente original é composto por múltiplos módulos; a recompilação de um SWF de teste isolado **não garante** o funcionamento do Ruffle nem do combate completo. `RELATORIO_PATCH_FLASH.md` registra a tentativa de build, erros de bibliotecas decompiladas e o patch para controles no PC/celular. Antes de publicar novos SWFs, reproduza a compilação adequada, preserve os controles por teclado e valide os módulos carregados no navegador.

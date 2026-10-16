@@ -113,10 +113,19 @@ BEGIN
 
     IF @OccupantItemID IS NOT NULL
     BEGIN
+        -- Menor slot LIVRE da mochila (31..79). Filtrar pelos slots
+        -- ocupados retornaria NULL justamente quando a mochila esta vazia.
         SET @FreeSlot = NULL;
-        SELECT @FreeSlot = MIN(Place)
-        FROM Db_Tank41.dbo.Sys_Users_Goods
-        WHERE UserID = @UserID AND BagType = 0 AND IsExist = 1 AND Place >= 31 AND Place <= 79;
+        SELECT TOP 1 @FreeSlot = v.Place
+        FROM (VALUES (31),(32),(33),(34),(35),(36),(37),(38),(39),(40),
+                     (41),(42),(43),(44),(45),(46),(47),(48),(49),(50),
+                     (51),(52),(53),(54),(55),(56),(57),(58),(59),(60),
+                     (61),(62),(63),(64),(65),(66),(67),(68),(69),(70),
+                     (71),(72),(73),(74),(75),(76),(77),(78),(79)) AS v(Place)
+        WHERE NOT EXISTS (SELECT 1 FROM Db_Tank41.dbo.Sys_Users_Goods g
+                          WHERE g.UserID = @UserID AND g.BagType = 0
+                            AND g.IsExist = 1 AND g.Place = v.Place)
+        ORDER BY v.Place;
 
         IF @FreeSlot IS NOT NULL
         BEGIN

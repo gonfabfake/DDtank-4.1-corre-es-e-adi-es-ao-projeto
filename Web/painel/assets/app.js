@@ -425,7 +425,8 @@ function AbaItens({ c, avisar }) {
       <//>
       <${Card} titulo="Conceder item">
         <div className="edit">
-          <${Campo} label="TemplateID" dica=${<a href="itens.php" target="_blank" rel="noopener">buscar no catálogo →</a>}>
+          <${Campo} label="TemplateID"
+                    dica=${html`<a href="itens.php" target="_blank" rel="noopener">buscar no catálogo →</a>`}>
             <input type="number" value=${tid} onChange=${e => setTid(e.target.value)} placeholder="ex.: 71843"/>
           <//>
           <${Campo} label="Bolsa">

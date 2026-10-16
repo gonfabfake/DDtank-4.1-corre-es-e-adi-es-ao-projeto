@@ -58,7 +58,7 @@ if (!is_dir($dir)) @mkdir($dir, 0777, true);
    extensão estranha, conferimos que o destino ficou dentro da pasta cache. */
 $realDir   = realpath($dir);
 $realCache = realpath(CACHE_DIR);
-if ($realDir === false || $realCache === false || !str_starts_with($realDir, $realCache)) {
+if ($realDir === false || $realCache === false || !($realDir === $realCache || str_starts_with($realDir, $realCache . DIRECTORY_SEPARATOR))) {
     http_response_code(400); exit('destino fora da pasta de cache');
 }
 $destino = $realDir . DIRECTORY_SEPARATOR . basename($p);
@@ -72,33 +72,30 @@ if (is_file($destino) && filesize($destino) > 0) {
 $cfg = img_config_ler();
 if ($cfg['base'] === '') { http_response_code(404); exit('sem resource configurada'); }
 
-$ch = curl_init($cfg['base'] . $p);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_TIMEOUT        => 15,
-    CURLOPT_FOLLOWLOCATION => false,      // nao segue redirect para fora do host
-    CURLOPT_USERAGENT      => 'Mozilla/5.0 painel-ddt',
-    // http e https: bloqueia file://, ftp://, gopher:// etc.
-    // (HTTP-only quebraria espelhos locais e resources em http)
-    CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS | CURLPROTO_HTTP,
-]);
-$body  = curl_exec($ch);
-$code  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$ct    = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-$erro  = curl_error($ch);
-curl_close($ch);
-
-if ($body === false || $code !== 200 || !is_string($body) || $body === '') {
-    http_response_code(404);
-    exit('nao encontrado na resource');
+try {
+    $download = img_consulta_publica($cfg['base'] . $p, false, 2097152);
+} catch (Throwable $e) {
+    http_response_code(400);
+    exit('resource invalida');
 }
-if (stripos($ct, 'image/') !== 0) {
+if (!$download['achou'] || $download['body'] === '') {
     http_response_code(404);
-    exit('a resource devolveu ' . $ct . ', nao imagem');
+    exit('imagem nao encontrada');
+}
+$imagem = @getimagesizefromstring($download['body']);
+$mime = is_array($imagem) ? ($imagem['mime'] ?? '') : '';
+if (!in_array($mime, ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true)) {
+    http_response_code(415);
+    exit('arquivo remoto nao e imagem raster valida');
 }
 
-/* ---- 3) grava a copia local ---- */
-if (@file_put_contents($destino, $body, LOCK_EX) !== false) {
-    @chmod($destino, 0644);
+/* Grava de modo atomico, evitando cache parcial ou arquivos malformados. */
+$tmp = @tempnam($realDir, 'img_');
+if ($tmp === false || @file_put_contents($tmp, $download['body'], LOCK_EX) === false
+    || !@rename($tmp, $destino)) {
+    if ($tmp !== false && is_file($tmp)) @unlink($tmp);
+    http_response_code(503);
+    exit('falha ao gravar cache local');
 }
+@chmod($destino, 0644);
 enviar($destino, true);

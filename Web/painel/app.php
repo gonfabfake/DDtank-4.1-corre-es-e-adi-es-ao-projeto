@@ -4,6 +4,7 @@
    O PHP cuida de sessao, permissao e injeta os dados iniciais.
    ===================================================================== */
 require_once __DIR__ . '/_lib.php';
+require_once __DIR__ . '/_imgconfig.php';
 $adm = admin_exigir();
 
 $boot = [
@@ -15,6 +16,7 @@ $boot = [
     'csrf'     => csrf_token(),
     'maxGrade' => grade_maximo(),
     'cupomMax' => CUPOM_MAX,
+    'img'      => img_config_ler(),
 ];
 
 // JSON seguro dentro de <script>

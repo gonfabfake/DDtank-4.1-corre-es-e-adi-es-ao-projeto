@@ -57,13 +57,25 @@ function img_config_ler(): array {
     }
     // normaliza: base sempre termina com /
     $c['base'] = rtrim((string)$c['base'], '/') . ($c['base'] !== '' ? '/' : '');
-    if (!in_array($c['modo'], ['padrao', 'template', 'pic'], true)) $c['modo'] = 'padrao';
+    if (!in_array($c['modo'], ['espelho', 'padrao', 'template', 'pic'], true)) $c['modo'] = 'espelho';
     return $c;
 }
 
 function img_config_gravar(array $novo): array {
     $c = img_config_ler();
-    if (isset($novo['base']))   $c['base'] = rtrim(trim((string)$novo['base']), '/') . (trim((string)$novo['base']) !== '' ? '/' : '');
+    if (isset($novo['base'])) {
+        $base = trim((string)$novo['base']);
+        if ($base !== '') {
+            if (strlen($base) > 2000) throw new InvalidArgumentException('URL base muito longa.');
+            $parsed = parse_url($base);
+            if (!is_array($parsed) || isset($parsed['query'])) {
+                throw new InvalidArgumentException('URL base nao pode conter parametros.');
+            }
+            $ch = img_curl_seguro($base);
+            curl_close($ch);
+        }
+        $c['base'] = $base !== '' ? rtrim($base, '/') . '/' : '';
+    }
     if (isset($novo['modo']) && in_array($novo['modo'], ['espelho','padrao','template','pic'], true)) $c['modo'] = $novo['modo'];
     if (isset($novo['caminho']) && in_array($novo['caminho'], ['padrao','template','pic','custom'], true)) $c['caminho'] = $novo['caminho'];
     if (isset($novo['template_custom'])) $c['template_custom'] = (string)$novo['template_custom'];
@@ -72,4 +84,101 @@ function img_config_gravar(array $novo): array {
     if (!is_dir($dir)) @mkdir($dir, 0777, true);
     file_put_contents(IMG_CONFIG_FILE, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
     return $c;
+}
+
+/* Resolucao de URL remota sem acesso a localhost, LAN ou enderecos reservados.
+   O endereco IPv4 e fixado em CURLOPT_RESOLVE para evitar DNS rebinding.
+   URLs privadas devem ser disponibilizadas como arquivos locais, nao proxy. */
+function img_curl_seguro(string $url) {
+    static $dns = [];
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+        || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+        throw new InvalidArgumentException('URL remota invalida.');
+    }
+    $host = strtolower(rtrim($parts['host'], '.'));
+    if (strlen($host) > 253 || !preg_match('~^[a-z0-9.-]+$~D', $host)
+        || !str_contains($host, '.') || str_contains($host, '..')) {
+        throw new InvalidArgumentException('Host remoto invalido.');
+    }
+    $port = (int)($parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80));
+    if (!in_array($port, [80, 443], true)) {
+        throw new InvalidArgumentException('A resource remota so pode usar portas 80 e 443.');
+    }
+    if (!array_key_exists($host, $dns)) {
+        $ips = filter_var($host, FILTER_VALIDATE_IP)
+            ? [$host] : (gethostbynamel($host) ?: []);
+        if (!$ips) {
+            throw new InvalidArgumentException('Host remoto sem DNS IPv4 valido.');
+        }
+        foreach ($ips as $ip) {
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4
+                | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                throw new InvalidArgumentException('Resource aponta para endereco privado ou reservado.');
+            }
+        }
+        $dns[$host] = $ips[0];
+    }
+    $ch = curl_init($url);
+    if ($ch === false) throw new RuntimeException('Falha ao iniciar cURL.');
+    curl_setopt_array($ch, [
+        CURLOPT_RESOLVE => ["$host:$port:" . $dns[$host]],
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 12,
+        CURLOPT_USERAGENT => 'DDTank-Painel/2',
+    ]);
+    return $ch;
+}
+
+/* Consulta remota limitada. Sem redirects, downloads excessivos ou URL privada. */
+function img_consulta_publica(string $url, bool $head = false, int $limite = 2097152): array {
+    $ch = img_curl_seguro($url);
+    $body = '';
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION,
+        static function ($curl, string $parte) use (&$body, $limite): int {
+            if (strlen($body) + strlen($parte) > $limite) return 0;
+            $body .= $parte;
+            return strlen($parte);
+        });
+    curl_setopt($ch, CURLOPT_NOBODY, $head);
+    $resultado = curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $tipo = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+    $erro = $resultado === false ? curl_error($ch) : '';
+    curl_close($ch);
+    return ['status' => $status, 'contentType' => $tipo, 'bytes' => strlen($body),
+        'body' => $body, 'erro' => $erro,
+        'achou' => ($resultado !== false && $status === 200 && stripos($tipo, 'image/') === 0)];
+}
+
+/* Deducao deterministica de caminho; testavel sem banco/IIS/rede. */
+function img_derivar_template(string $url, string $id): array {
+    if ($url === '' || strlen($url) > 2000 || !preg_match('~^[0-9]{1,10}$~D', $id)) {
+        throw new InvalidArgumentException('URL ou TemplateID invalido.');
+    }
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])
+        || !in_array(strtolower($parts['scheme']), ['http', 'https'], true)
+        || isset($parts['query']) || isset($parts['fragment'])
+        || isset($parts['user']) || isset($parts['pass'])) {
+        throw new InvalidArgumentException('Use URL de imagem direta, sem parametros.');
+    }
+    $path = (string)($parts['path'] ?? '');
+    $tpl = preg_replace('~(?<![0-9])' . preg_quote($id, '~') . '(?![0-9])~',
+        '{id}', $path, 1, $qtd);
+    if ($qtd !== 1 || !is_string($tpl)) {
+        throw new InvalidArgumentException('Caminho nao contem TemplateID exato.');
+    }
+    $tpl = ltrim($tpl, '/');
+    if ($tpl === '' || strlen($tpl) > 250 || str_contains($tpl, '..')
+        || !preg_match('~^[a-zA-Z0-9_./{}-]+$~D', $tpl)
+        || !preg_match('~\\.(png|jpg|jpeg|gif|webp)$~iD', $tpl)) {
+        throw new InvalidArgumentException('Modelo de imagem nao suportado.');
+    }
+    $porta = isset($parts['port']) ? ':' . (int)$parts['port'] : '';
+    $base = strtolower($parts['scheme']) . '://' . strtolower($parts['host']) . $porta . '/';
+    return ['base' => $base, 'template' => $tpl];
 }

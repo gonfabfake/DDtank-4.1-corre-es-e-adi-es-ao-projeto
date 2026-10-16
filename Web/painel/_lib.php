@@ -74,6 +74,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
    5. Utilidades de saida (escapar SEMPRE na hora de imprimir)
    --------------------------------------------------------------------- */
 function e($v): string {
+    // sqlsrv devolve colunas datetime como objetos DateTime, nao string.
+    if ($v instanceof DateTimeInterface) {
+        $v = $v->format('Y-m-d H:i:s');
+    } elseif (is_bool($v)) {
+        $v = $v ? '1' : '0';
+    } elseif ($v === null) {
+        $v = '';
+    }
     return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 

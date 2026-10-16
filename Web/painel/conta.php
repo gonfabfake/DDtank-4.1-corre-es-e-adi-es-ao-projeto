@@ -47,12 +47,12 @@ if ($uid) {
     $d = db_um("SELECT * FROM Db_Tank41.dbo.Sys_Users_Detail WHERE UserID = ?", [$uid]);
     $vip = db_um("SELECT * FROM Db_Tank41.dbo.Sys_VIP_Info WHERE UserID = ?", [$uid]);
     $guilda = db_um(
-        "SELECT cu.DutyID, c.Name AS Guilda, c.Level AS NivelGuilda
+        "SELECT cu.DutyID, c.ConsortiaName AS Guilda, c.Level AS NivelGuilda
          FROM Db_Tank41.dbo.Consortia_Users cu
          LEFT JOIN Db_Tank41.dbo.Consortia c ON c.ConsortiaID = cu.ConsortiaID
          WHERE cu.UserID = ? AND cu.IsExist = 1", [$uid]);
     $casamento = db_um(
-        "SELECT * FROM Db_Tank41.dbo.Marry_Info WHERE UserID = ? OR SpouseID = ?", [$uid, $uid]);
+        "SELECT * FROM Db_Tank41.dbo.Marry_Info WHERE UserID = ?", [$uid]);
     $rank = db_um("SELECT * FROM Db_Tank41.dbo.Sys_User_Rank WHERE UserID = ?", [$uid]);
     $match = db_um("SELECT * FROM Db_Tank41.dbo.Sys_User_Match_Info WHERE UserID = ?", [$uid]);
     $fight = db_um("SELECT * FROM Db_Tank41.dbo.Sys_Users_Fight WHERE UserID = ?", [$uid]);

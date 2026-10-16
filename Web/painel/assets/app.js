@@ -698,7 +698,8 @@ function ViewImagens({ avisar }) {
   const [tpl, setTpl] = useState('arm/{id}/00.png');
   const [id, setId] = useState('71843');
   const [desc, setDesc] = useState(null);
-  const [urlBoa, setUrlBoa] = useState('');
+  const [urlBoa, setUrlBoa] = useState('https://resbr51-myddt-ofc.ddtankswordgames.com/image/unfrightprop/guidname/icon.png');
+  const [testeDireto, setTesteDireto] = useState(null);
   const [deriv, setDeriv] = useState(null);
   const [cache, setCache] = useState(null);
   const [amostra, setAmostra] = useState([]);
@@ -737,6 +738,16 @@ function ViewImagens({ avisar }) {
       const r = await api('imgdescobrir', { base: cfg.base, id, pic: amostra[0] ? amostra[0].pic : '' });
       setDesc(r);
     } catch (e) { setDesc({ erro: e.message }); avisar('erro', e.message); }
+  };
+
+  const testarLinkDireto = async () => {
+    setTesteDireto({ rodando: true });
+    try {
+      setTesteDireto(await api('imgurl', { url: urlBoa }));
+    } catch (e) {
+      setTesteDireto({ erro: e.message });
+      avisar('erro', e.message);
+    }
   };
 
   const derivar = async () => {
@@ -818,7 +829,26 @@ function ViewImagens({ avisar }) {
           <input value=${urlBoa} onChange=${e => setUrlBoa(e.target.value)}
                  placeholder="https://resbr51-.../.../71843...png"/>
         <//>
-        <button onClick=${derivar} disabled=${!urlBoa || !/^[0-9]{1,10}$/.test(id)}>Validar e salvar padrão</button>
+        <p className="mini">
+          URL de referência com nome fixo, como <code>guidname</code>? Use
+          <b> Testar URL direta</b>. Isso apenas consulta a imagem, sem salvar
+          um padrão inválido para os outros itens. Para derivar um padrão
+          reutilizável, informe uma URL contendo o TemplateID numérico.
+        </p>
+        <div className="acoes-url">
+          <button onClick=${testarLinkDireto} disabled=${!urlBoa || !!testeDireto?.rodando}>Testar URL direta</button>
+          <button onClick=${derivar}
+                  disabled=${!urlBoa || !/^[0-9]{1,10}$/.test(id) || !urlBoa.includes(id)}>Validar e salvar padrão por TemplateID</button>
+        </div>
+        ${testeDireto ? (testeDireto.rodando
+          ? html`<p className="mini">consultando imagem de referência…</p>`
+          : testeDireto.erro ? painel_aviso(testeDireto.erro)
+          : html`<div className=${'aviso ' + (testeDireto.achou ? 'bom' : 'erro')}>
+              <b>${testeDireto.achou ? 'Imagem encontrada' : 'Imagem não encontrada'}</b><br />
+              <span className="mono">${testeDireto.status} · ${testeDireto.contentType || 'sem content-type'}
+              · ${testeDireto.bytes || 0} bytes</span>
+              ${testeDireto.motivo ? html`<br/><small>${testeDireto.motivo}</small>` : null}
+            </div>`) : null}
         ${deriv ? (deriv.rodando ? html`<p className="mini">verificando…</p>`
           : deriv.erro ? painel_aviso(deriv.erro)
           : deriv.achou ? html`<div className="aviso bom">

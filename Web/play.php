@@ -62,6 +62,7 @@ session_write_close();
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b1118;color:#eee;font:16px/1.35 Arial,Helvetica,sans-serif;overscroll-behavior:none;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   #gamewrap{position:fixed;inset:0;background:#000;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  #game{width:100%;height:100%}
   ruffle-player{display:block;width:100%;height:100%;touch-action:none}
   #hud{position:fixed;z-index:31;top:calc(6px + env(safe-area-inset-top));left:calc(6px + env(safe-area-inset-left));display:flex;gap:8px}
   .chip{width:42px;height:42px;border:0;border-radius:11px;background:rgba(10,16,24,.66);color:#cfe6ff;font-size:21px;line-height:42px;text-align:center;cursor:pointer;padding:0;opacity:.85;-webkit-appearance:none;appearance:none}

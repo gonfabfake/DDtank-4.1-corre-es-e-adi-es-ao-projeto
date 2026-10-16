@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <config>
-    <FLASHSITE value="http://127.0.0.1/flash/" />
-    <BACKUP_FLASHSITE value="http://127.0.0.1/flash/" />
+    <FLASHSITE value="/flash/" />
+    <BACKUP_FLASHSITE value="/flash/" />
     <USE_MD5 value="False" />
-    <SITE value="http://127.0.0.1/asset.php?path=" />
-    <FIRSTPAGE value="http://127.0.0.1/" />
-    <REGISTER value="http://127.0.0.1/" />
-    <REQUEST_PATH value="http://127.0.0.1/request/" />
-    <LOGIN_PATH value="http://127.0.0.1/" siteName="DDT" />
+    <SITE value="/asset.php?path=" />
+    <FIRSTPAGE value="/" />
+    <REGISTER value="/" />
+    <REQUEST_PATH value="/request/" />
+    <LOGIN_PATH value="/" siteName="DDT" />
     <FILL_PATH value="http://bb.mail.ru/billing/payment" />
     <POLICY_FILES>
-      <file value="http://127.0.0.1/crossdomain.xml" />
+      <file value="/crossdomain.xml" />
     </POLICY_FILES>
     <GAME_BOXPIC value="7" />
     <FIGHTLIB value="true" />
@@ -25,7 +25,7 @@
     <GAME_BOXPIC value="1" />
     <ISTOPDERIICT value="true" />
     <COUNT_PATH value="http://gamebihandler.7road.com/ddt_game/List_BI_Click.ashx" />
-    <PHP isShow="false" link="false" site="http://127.0.0.1/" infoPath="" />
+    <PHP isShow="false" link="false" site="/" infoPath="" />
     <OFFICIAL_SITE value="http://gunny.zing.vn/" />
     <GAME_FORUM value="http://diendan.zing.vn/gunny/" />
     <COMMUNITY_FRIEND_PATH isUser="false" value="http://ddt.the9.com/addfriend.php" />

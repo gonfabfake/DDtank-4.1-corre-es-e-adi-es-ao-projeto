@@ -70,5 +70,5 @@ Info ''
 Info '=== pronto ==='
 Info "Portal (celular):  http://$Ip/"
 Info "Jogo (celular):    http://$Ip/play.php"
-Info "WebSocket do jogo: ws://$Ip:8765/game"
+Info "WebSocket do jogo: ws://${Ip}:8765/game"
 Info 'Mantenha o PC ligado com o servidor em execucao (Start-Server.ps1).'

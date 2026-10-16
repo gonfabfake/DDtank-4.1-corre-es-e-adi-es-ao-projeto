@@ -102,6 +102,17 @@ function db_query(string $sql, array $params = []): array {
     return $rows;
 }
 
+/* Controle de transacao PRECISA ir por sqlsrv_query direto.
+   Em sqlsrv_prepare, "BEGIN TRAN" falha com:
+   "Transaction count after EXECUTE indicates a mismatching number of
+    BEGIN and COMMIT statements". */
+function db_tx(string $sql): void {
+    global $conn;
+    if (sqlsrv_query($conn, $sql) === false) {
+        throw new RuntimeException('TX ' . $sql . ': ' . json_encode(sqlsrv_errors(), JSON_UNESCAPED_UNICODE));
+    }
+}
+
 function db_um(string $sql, array $params = []): ?array {
     $r = db_query($sql, $params);
     return $r[0] ?? null;

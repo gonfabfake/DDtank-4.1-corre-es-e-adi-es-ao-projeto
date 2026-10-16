@@ -185,7 +185,7 @@ function App() {
       </header>
       <${Aviso} msg=${msg} tipo=${tipoMsg}/>
       <main>
-        ${view === 'conta'      && html`<${ViewConta} avisar=${avisar}/>`}
+        ${view === 'conta'      && html`<${ViewConta} avisar=${avisar} irItens=${() => setView('itens')}/>`}
         ${view === 'contas'     && html`<${ViewContas} avisar=${avisar} irConta=${() => setView('conta')}/>`}
         ${view === 'itens'      && html`<${ViewItens} avisar=${avisar}/>`}
         ${view === 'auditoria'  && html`<${ViewAuditoria} avisar=${avisar}/>`}
@@ -200,7 +200,7 @@ function App() {
 /* ------------------------------------------------------------------ */
 /* Ficha da conta                                                      */
 /* ------------------------------------------------------------------ */
-function ViewConta({ avisar }) {
+function ViewConta({ avisar, irItens }) {
   const [q, setQ] = useState('');
   const [c, setC] = useState(null);
   const [aba, setAba] = useState('resumo');
@@ -256,7 +256,7 @@ function ViewConta({ avisar }) {
       </div>
 
       ${aba === 'resumo'    && html`<${AbaResumo}   c=${c} avisar=${avisar} recarregar=${buscar}/>`}
-      ${aba === 'itens'     && html`<${AbaItens}    c=${c} avisar=${avisar}/>`}
+      ${aba === 'itens'     && html`<${AbaItens}    c=${c} avisar=${avisar} irItens=${irItens}/>`}
       ${aba === 'mensagens' && html`<${AbaMensagens} c=${c}/>`}
       ${aba === 'acoes'     && html`<${AbaAcoes}     c=${c}/>`}
       ${aba === 'pets'      && html`<${AbaPets}      c=${c}/>`}

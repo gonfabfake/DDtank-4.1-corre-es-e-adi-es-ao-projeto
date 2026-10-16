@@ -73,7 +73,7 @@ $cfg = img_config_ler();
 if ($cfg['base'] === '') { http_response_code(404); exit('sem resource configurada'); }
 
 try {
-    $download = img_consulta_publica($cfg['base'] . $p, false, 2097152);
+    $download = img_consulta_publica(img_resource_base($cfg['base']) . $p, false, 2097152);
 } catch (Throwable $e) {
     http_response_code(400);
     exit('resource invalida');
